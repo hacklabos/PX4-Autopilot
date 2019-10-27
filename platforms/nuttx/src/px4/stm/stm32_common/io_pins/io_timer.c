@@ -502,6 +502,32 @@ void io_timer_update_dma_req(uint8_t timer, bool enable)
 	}
 }
 
+void io_timer_enabe_input(volatile uint8_t timer, bool enable)
+{
+	uint32_t ccmr1 = rCCMR1(timer);
+	uint32_t ccmr2 = rCCMR2(timer);
+
+	if (enable) {
+
+		rBDTR(timer) &= ~ATIM_BDTR_MOE;
+		ccmr1 |= GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR1_CC1S_SHIFT;
+		ccmr1 |= GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR1_CC2S_SHIFT;
+		ccmr2 |= GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR2_CC3S_SHIFT;
+		ccmr2 |= GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR2_CC4S_SHIFT;
+	} else {
+		rBDTR(timer) |= ATIM_BDTR_MOE;
+		ccmr1 &= ~(GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR1_CC1S_SHIFT);
+		ccmr1 &= ~(GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR1_CC2S_SHIFT);
+		ccmr2 &= ~(GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR2_CC3S_SHIFT);
+		ccmr2 &= ~(GTIM_CCMR_CCS_CCIN1 << GTIM_CCMR2_CC4S_SHIFT);
+	}
+
+	rCCER(timer) &= ~(ATIM_CCER_CC1E | ATIM_CCER_CC2E | ATIM_CCER_CC3E | ATIM_CCER_CC4E);
+	rCCMR1(timer) = ccmr1;
+	rCCMR2(timer) = ccmr2;
+	rCCER(timer) |= (ATIM_CCER_CC1E | ATIM_CCER_CC2E | ATIM_CCER_CC3E | ATIM_CCER_CC4E);
+}
+
 int io_timer_set_dshot_mode(uint8_t timer, unsigned dshot_pwm_freq, uint8_t dma_burst_length)
 {
 	int ret_val = OK;
@@ -522,6 +548,8 @@ int io_timer_set_dshot_mode(uint8_t timer, unsigned dshot_pwm_freq, uint8_t dma_
 	} else {
 		ret_val = ERROR;
 	}
+
+	rCCER(timer) = ATIM_CCER_CC1P | ATIM_CCER_CC2P | ATIM_CCER_CC3P | ATIM_CCER_CC4P;
 
 	if (OK == ret_val) {
 		rARR(timer)  = DSHOT_MOTOR_PWM_BIT_WIDTH;

@@ -67,7 +67,10 @@ typedef struct dshot_handler_t {
 	bool			init;
 	DMA_HANDLE		dma_handle;
 	uint32_t		dma_size;
+	uint8_t			callback_arg;
 } dshot_handler_t;
+
+bool bidirectional[DIRECT_PWM_OUTPUT_CHANNELS] = {false};
 
 #define DMA_BUFFER_MASK    (PX4_ARCH_DCACHE_LINESIZE - 1)
 #define DMA_ALIGN_UP(n)    (((n) + DMA_BUFFER_MASK) & ~DMA_BUFFER_MASK)
@@ -75,6 +78,7 @@ typedef struct dshot_handler_t {
 
 static dshot_handler_t dshot_handler[DSHOT_TIMERS] = {};
 static uint16_t *motor_buffer = NULL;
+static uint8_t dshot_burst_input[1000] = {0u};
 static uint8_t dshot_burst_buffer_array[DSHOT_TIMERS * DSHOT_BURST_BUFFER_SIZE(MAX_NUM_CHANNELS_PER_TIMER)]
 __attribute__((aligned(PX4_ARCH_DCACHE_LINESIZE))); // DMA buffer
 static uint32_t *dshot_burst_buffer[DSHOT_TIMERS] = {};
@@ -84,6 +88,7 @@ static const uint8_t motor_assignment[MOTORS_NUMBER] = BOARD_DSHOT_MOTOR_ASSIGNM
 #endif /* BOARD_DSHOT_MOTOR_ASSIGNMENT */
 
 void dshot_dmar_data_prepare(uint8_t timer, uint8_t first_motor, uint8_t motors_number);
+void dshot_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg);
 
 int up_dshot_init(uint32_t channel_mask, unsigned dshot_pwm_freq)
 {
@@ -136,6 +141,7 @@ int up_dshot_init(uint32_t channel_mask, unsigned dshot_pwm_freq)
 			if (OK == ret_val) {
 				channel_mask &= ~(1 << channel);
 				dshot_handler[timer].init = true;
+				bidirectional[channel] = true;
 			}
 		}
 	}
@@ -180,13 +186,44 @@ void up_dshot_trigger(void)
 				       dshot_handler[timer].dma_size,
 				       DSHOT_DMA_SCR);
 
-			// Clean UDE flag before DMA is started
-			io_timer_update_dma_req(timer, false);
 			// Trigger DMA (DShot Outputs)
-			stm32_dmastart(dshot_handler[timer].dma_handle, NULL, NULL, false);
+			io_timer_enabe_input(timer, false);
+			io_timer_update_dma_req(timer, false);
+			dshot_handler[timer].callback_arg = timer;
+			stm32_dmastart(dshot_handler[timer].dma_handle, &dshot_dma_callback, &(dshot_handler[timer].callback_arg), false);
 			io_timer_update_dma_req(timer, true);
 
 		}
+	}
+}
+
+void dshot_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg)
+{
+	uint8_t volatile timer = *((uint8_t *)arg);
+	io_timer_enabe_input(timer, true);
+
+	if(timer != 10 && timer == 0) {
+		io_timer_update_dma_req(timer, false);
+		stm32_dmasetup(dshot_handler[timer].dma_handle,
+				   io_timers[timer].base + STM32_GTIM_DMAR_OFFSET,
+				   (uint32_t)(dshot_burst_input),
+				   dshot_handler[timer].dma_size,
+				   DSHOT_DMA_SCR);
+
+		static uint8_t arg2 = 10;
+		stm32_dmastart(dshot_handler[timer].dma_handle, &dshot_dma_callback, &(arg2), false);
+		io_timer_update_dma_req(timer, true);
+	}
+
+
+	if(timer == 10){
+		timer = 0;
+		/*
+		for(uint8_t i = 0; i < ONE_MOTOR_BUFF_SIZE; i++) {
+			printf("%d ", dshot_burst_buffer_array[16*i]);
+		}
+		printf("\n");
+		*/
 	}
 }
 
@@ -216,6 +253,10 @@ static void dshot_motor_data_set(uint32_t motor_number, uint16_t throttle, bool 
 	for (i = 0; i < DSHOT_NUMBER_OF_NIBBLES; i++) {
 		checksum ^= (csum_data & 0x0F); // XOR data by nibbles
 		csum_data >>= NIBBLES_SIZE;
+	}
+
+	if(bidirectional[motor_number]) {
+		checksum = ~checksum;
 	}
 
 	packet |= (checksum & 0x0F);
