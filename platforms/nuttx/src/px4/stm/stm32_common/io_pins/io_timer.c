@@ -502,7 +502,7 @@ void io_timer_update_dma_req(uint8_t timer, bool enable)
 	}
 }
 
-void io_timer_enabe_input(volatile uint8_t timer, bool enable)
+void io_timer_enabe_input(uint8_t timer, bool enable)
 {
 	uint32_t ccmr1 = rCCMR1(timer);
 	uint32_t ccmr2 = rCCMR2(timer);
@@ -525,6 +525,10 @@ void io_timer_enabe_input(volatile uint8_t timer, bool enable)
 	rCCER(timer) &= ~(ATIM_CCER_CC1E | ATIM_CCER_CC2E | ATIM_CCER_CC3E | ATIM_CCER_CC4E);
 	rCCMR1(timer) = ccmr1;
 	rCCMR2(timer) = ccmr2;
+	rCCR1(timer) = 0;
+	rCCR2(timer) = 0;
+	rCCR3(timer) = 0;
+	rCCR4(timer) = 0;
 	rCCER(timer) |= (ATIM_CCER_CC1E | ATIM_CCER_CC2E | ATIM_CCER_CC3E | ATIM_CCER_CC4E);
 }
 
@@ -549,6 +553,7 @@ int io_timer_set_dshot_mode(uint8_t timer, unsigned dshot_pwm_freq, uint8_t dma_
 		ret_val = ERROR;
 	}
 
+	//TODO: this change DShot polarity to be bidirectional. Add mask for channels.
 	rCCER(timer) = ATIM_CCER_CC1P | ATIM_CCER_CC2P | ATIM_CCER_CC3P | ATIM_CCER_CC4P;
 
 	if (OK == ret_val) {

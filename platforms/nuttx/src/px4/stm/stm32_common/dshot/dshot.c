@@ -60,8 +60,11 @@
 #define DSHOT_END_OF_STREAM 		16u
 #define MAX_NUM_CHANNELS_PER_TIMER	4u // CCR1-CCR4
 
-#define DSHOT_DMA_SCR (DMA_SCR_PRIHI | DMA_SCR_MSIZE_32BITS | DMA_SCR_PSIZE_32BITS | DMA_SCR_MINC | \
+#define DSHOT_DMA_SCR_OUT (DMA_SCR_PRIHI | DMA_SCR_MSIZE_32BITS | DMA_SCR_PSIZE_32BITS | DMA_SCR_MINC | \
 		       DMA_SCR_DIR_M2P | DMA_SCR_TCIE | DMA_SCR_HTIE | DMA_SCR_TEIE | DMA_SCR_DMEIE)
+
+#define DSHOT_DMA_SCR_IN (DMA_SCR_PRIHI | DMA_SCR_MSIZE_32BITS | DMA_SCR_PSIZE_32BITS | DMA_SCR_MINC | \
+		       DMA_SCR_DIR_P2M | DMA_SCR_TCIE | DMA_SCR_HTIE | DMA_SCR_TEIE | DMA_SCR_DMEIE)
 
 typedef struct dshot_handler_t {
 	bool			init;
@@ -78,7 +81,8 @@ bool bidirectional[DIRECT_PWM_OUTPUT_CHANNELS] = {false};
 
 static dshot_handler_t dshot_handler[DSHOT_TIMERS] = {};
 static uint16_t *motor_buffer = NULL;
-static uint8_t dshot_burst_input[1000] = {0u};
+#define INPUT_SIZE	500
+static uint32_t dshot_burst_input[INPUT_SIZE] = {0xFF};
 static uint8_t dshot_burst_buffer_array[DSHOT_TIMERS * DSHOT_BURST_BUFFER_SIZE(MAX_NUM_CHANNELS_PER_TIMER)]
 __attribute__((aligned(PX4_ARCH_DCACHE_LINESIZE))); // DMA buffer
 static uint32_t *dshot_burst_buffer[DSHOT_TIMERS] = {};
@@ -88,7 +92,8 @@ static const uint8_t motor_assignment[MOTORS_NUMBER] = BOARD_DSHOT_MOTOR_ASSIGNM
 #endif /* BOARD_DSHOT_MOTOR_ASSIGNMENT */
 
 void dshot_dmar_data_prepare(uint8_t timer, uint8_t first_motor, uint8_t motors_number);
-void dshot_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg);
+void dshot_output_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg);
+void dshot_input_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg);
 
 int up_dshot_init(uint32_t channel_mask, unsigned dshot_pwm_freq)
 {
@@ -184,47 +189,41 @@ void up_dshot_trigger(void)
 				       io_timers[timer].base + STM32_GTIM_DMAR_OFFSET,
 				       (uint32_t)(dshot_burst_buffer[timer]),
 				       dshot_handler[timer].dma_size,
-				       DSHOT_DMA_SCR);
+				       DSHOT_DMA_SCR_OUT);
 
 			// Trigger DMA (DShot Outputs)
-			io_timer_enabe_input(timer, false);
 			io_timer_update_dma_req(timer, false);
+			io_timer_enabe_input(timer, false);
 			dshot_handler[timer].callback_arg = timer;
-			stm32_dmastart(dshot_handler[timer].dma_handle, &dshot_dma_callback, &(dshot_handler[timer].callback_arg), false);
+			stm32_dmastart(dshot_handler[timer].dma_handle, &dshot_output_dma_callback, &(dshot_handler[timer].callback_arg), false);
 			io_timer_update_dma_req(timer, true);
 
 		}
 	}
 }
 
-void dshot_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg)
+void dshot_output_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg)
 {
 	uint8_t volatile timer = *((uint8_t *)arg);
 	io_timer_enabe_input(timer, true);
 
-	if(timer != 10 && timer == 0) {
-		io_timer_update_dma_req(timer, false);
-		stm32_dmasetup(dshot_handler[timer].dma_handle,
-				   io_timers[timer].base + STM32_GTIM_DMAR_OFFSET,
-				   (uint32_t)(dshot_burst_input),
-				   dshot_handler[timer].dma_size,
-				   DSHOT_DMA_SCR);
+	io_timer_update_dma_req(timer, false);
+	stm32_dmasetup(dshot_handler[timer].dma_handle,
+			   io_timers[timer].base + STM32_GTIM_DMAR_OFFSET,
+			   (uint32_t)(dshot_burst_input),
+			   INPUT_SIZE,
+			   //dshot_handler[timer].dma_size,
+			   DSHOT_DMA_SCR_IN);
 
-		static uint8_t arg2 = 10;
-		stm32_dmastart(dshot_handler[timer].dma_handle, &dshot_dma_callback, &(arg2), false);
-		io_timer_update_dma_req(timer, true);
-	}
+	stm32_dmastart(dshot_handler[timer].dma_handle, &dshot_input_dma_callback, arg, false);
+	io_timer_update_dma_req(timer, true);
+}
 
-
-	if(timer == 10){
-		timer = 0;
-		/*
-		for(uint8_t i = 0; i < ONE_MOTOR_BUFF_SIZE; i++) {
-			printf("%d ", dshot_burst_buffer_array[16*i]);
-		}
-		printf("\n");
-		*/
-	}
+void dshot_input_dma_callback(DMA_HANDLE handle, uint8_t status, void *arg)
+{
+	uint8_t volatile timer = *((uint8_t *)arg);
+	io_timer_update_dma_req(timer, false);
+	io_timer_enabe_input(timer, false);
 }
 
 /**
