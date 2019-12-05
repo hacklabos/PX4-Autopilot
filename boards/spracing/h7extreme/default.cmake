@@ -7,8 +7,8 @@ px4_add_board(
 	TOOLCHAIN arm-none-eabi
 	ARCHITECTURE cortex-m7
 	ROMFSROOT px4fmu_common
-	BUILD_BOOTLOADER
-	IO px4_io-v2_default
+	#BUILD_BOOTLOADER
+	#IO px4_io-v2_default
 	TESTING
 #	UAVCAN_INTERFACES 2  - No H7 or FD can support in UAVCAN
 	SERIAL_PORTS
@@ -49,7 +49,6 @@ px4_add_board(
 #					   all arch dependant code there
 		pwm_out_sim
 		px4fmu
-		px4io
 		roboclaw
 		tap_esc
 		telemetry # all available telemetry drivers

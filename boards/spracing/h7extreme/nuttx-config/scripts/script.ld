@@ -92,11 +92,11 @@
  *   3) AHB SRAM (D2 domain) accessible by all system masters except BDMA
  *      through D2 domain AHB bus matrix
  *
- *      3.1) 128Kb of SRAM1 beginning at address 0x3000:0000
+ *      3.1) 128Kb of sram beginning at address 0x3000:0000
  *      3.2) 128Kb of SRAM2 beginning at address 0x3002:0000
  *      3.3)  32Kb of SRAM3 beginning at address 0x3004:0000
  *
- *      SRAM1 - SRAM3 are one contiguous block: 288Kb at address 0x3000:0000
+ *      sram - SRAM3 are one contiguous block: 288Kb at address 0x3000:0000
  *
  *   4) AHB SRAM (D3 domain) accessible by most of system masters
  *      through D3 domain AHB bus matrix
@@ -112,7 +112,7 @@
 MEMORY
 {
 	dtcm  (xrw) : ORIGIN = 0x20000000, LENGTH = 128K
-	sram1 (xrw) : ORIGIN = 0x24000000, LENGTH = 512K
+	sram  (xrw) : ORIGIN = 0x24000000, LENGTH = 512K
 	sram2 (xrw) : ORIGIN = 0x30000000, LENGTH = 288K
 	sram3 (xrw) : ORIGIN = 0x38000000, LENGTH = 64K
 	itcm  (xrw) : ORIGIN = 0x00000000, LENGTH = 64K
@@ -198,7 +198,7 @@ SECTIONS
 		*(.gnu.linkonce.d.*)
 		CONSTRUCTORS
 		_edata = ABSOLUTE(.);
-	} > sram1 AT > qspi
+	} > sram AT > qspi
 
 	.bss : {
 		_sbss = ABSOLUTE(.);
@@ -207,7 +207,7 @@ SECTIONS
 		*(COMMON)
 		. = ALIGN(4);
 		_ebss = ABSOLUTE(.);
-	} > sram1
+	} > sram
 
 	/* Stabs debugging sections. */
 	.stab 0 : { *(.stab) }
