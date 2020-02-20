@@ -111,11 +111,11 @@
 
 MEMORY
 {
-	dtcm  (xrw) : ORIGIN = 0x20000000, LENGTH = 128K
-	sram  (xrw) : ORIGIN = 0x24000000, LENGTH = 512K
-	sram2 (xrw) : ORIGIN = 0x30000000, LENGTH = 288K
-	sram3 (xrw) : ORIGIN = 0x38000000, LENGTH = 64K
-	itcm  (xrw) : ORIGIN = 0x00000000, LENGTH = 64K
+	dtcm  (xrw) : ORIGIN = 0x20000000,  LENGTH = 128K
+	sram  (xrw) : ORIGIN = 0x24000000,  LENGTH = 512K
+	sram2 (xrw) : ORIGIN = 0x30000000,  LENGTH = 288K
+	sram3 (xrw) : ORIGIN = 0x38000000,  LENGTH = 64K
+	itcm  (xrw) : ORIGIN = 0x00000000,  LENGTH = 64K
 	flash (xrw) : ORIGIN = 0x08000000,  LENGTH = 128K
 	qspi  (xrw) : ORIGIN = 0x09000000,  LENGTH = 4096K
 }

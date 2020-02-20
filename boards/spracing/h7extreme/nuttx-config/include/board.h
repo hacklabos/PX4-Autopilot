@@ -55,17 +55,17 @@
 /* Clocking *************************************************************************/
 /* The sp racing h7 extreme  board provides the following clock sources:
  *
- *   X1: 16 MHz crystal for HSE
+ *   X1: 25 MHz crystal for HSE
  *
  * So we have these clock source available within the STM32
  *
  *   HSI: 16 MHz RC factory-trimmed
- *   HSE: 16 MHz crystal for HSE
+ *   HSE: 25 MHz crystal for HSE
  */
 
-#define STM32_BOARD_XTAL        16000000ul
+#define STM32_BOARD_XTAL        25000000ul
 
-#define STM32_HSI_FREQUENCY     16000000ul
+#define STM32_HSI_FREQUENCY     64000000ul
 #define STM32_LSI_FREQUENCY     32000
 #define STM32_HSE_FREQUENCY     STM32_BOARD_XTAL
 #define STM32_LSE_FREQUENCY     32768
