@@ -45,8 +45,6 @@ bool FlightTaskManualAltitude::updateInitialize()
 {
 	bool ret = FlightTaskManual::updateInitialize();
 
-	_sub_home_position.update();
-
 	// in addition to manual require valid position and velocity in D-direction and valid yaw
 	return ret && PX4_ISFINITE(_position(2)) && PX4_ISFINITE(_velocity(2)) && PX4_ISFINITE(_yaw);
 }
@@ -63,6 +61,16 @@ bool FlightTaskManualAltitude::activate(vehicle_local_position_setpoint_s last_s
 
 	_constraints.tilt = math::radians(_param_mpc_man_tilt_max.get());
 
+	_updateConstraintsFromEstimator();
+
+	_max_speed_up = _constraints.speed_up;
+	_max_speed_down = _constraints.speed_down;
+
+	return ret;
+}
+
+void FlightTaskManualAltitude::_updateConstraintsFromEstimator()
+{
 	if (PX4_ISFINITE(_sub_vehicle_local_position.get().hagl_min)) {
 		_constraints.min_distance_to_ground = _sub_vehicle_local_position.get().hagl_min;
 
@@ -76,11 +84,6 @@ bool FlightTaskManualAltitude::activate(vehicle_local_position_setpoint_s last_s
 	} else {
 		_constraints.max_distance_to_ground = INFINITY;
 	}
-
-	_max_speed_up = _constraints.speed_up;
-	_min_speed_down = _constraints.speed_down;
-
-	return ret;
 }
 
 void FlightTaskManualAltitude::_scaleSticks()
@@ -133,7 +136,7 @@ void FlightTaskManualAltitude::_updateAltitudeLock()
 
 				// Adjust the setpoint to maintain the same height error to reduce control transients
 				if (PX4_ISFINITE(_dist_to_ground_lock) && PX4_ISFINITE(_dist_to_bottom)) {
-					_position_setpoint(2) = _position(2) + (_dist_to_ground_lock - _dist_to_bottom);
+					_position_setpoint(2) = _position(2) - (_dist_to_ground_lock - _dist_to_bottom);
 
 				} else {
 					_position_setpoint(2) = _position(2);
@@ -150,7 +153,7 @@ void FlightTaskManualAltitude::_updateAltitudeLock()
 
 				// Adjust the setpoint to maintain the same height error to reduce control transients
 				if (PX4_ISFINITE(_position_setpoint(2))) {
-					_dist_to_ground_lock = _dist_to_bottom + (_position_setpoint(2) - _position(2));
+					_dist_to_ground_lock = _dist_to_bottom - (_position_setpoint(2) - _position(2));
 				}
 			}
 		}
@@ -243,7 +246,7 @@ void FlightTaskManualAltitude::_respectMaxAltitude()
 		// below the maximum, preserving control loop vertical position error gain.
 		if (PX4_ISFINITE(_constraints.max_distance_to_ground)) {
 			_constraints.speed_up = math::constrain(_param_mpc_z_p.get() * (_constraints.max_distance_to_ground - _dist_to_bottom),
-								-_min_speed_down, _max_speed_up);
+								-_max_speed_down, _max_speed_up);
 
 		} else {
 			_constraints.speed_up = _max_speed_up;
@@ -256,10 +259,10 @@ void FlightTaskManualAltitude::_respectMaxAltitude()
 			// set position setpoint to maximum distance to ground
 			_position_setpoint(2) = _position(2) +  delta_distance_to_max;
 			// limit speed downwards to 0.7m/s
-			_constraints.speed_down = math::min(_min_speed_down, 0.7f);
+			_constraints.speed_down = math::min(_max_speed_down, 0.7f);
 
 		} else {
-			_constraints.speed_down = _min_speed_down;
+			_constraints.speed_down = _max_speed_down;
 
 		}
 	}
@@ -267,22 +270,12 @@ void FlightTaskManualAltitude::_respectMaxAltitude()
 
 void FlightTaskManualAltitude::_respectGroundSlowdown()
 {
-	float dist_to_ground = NAN;
-
-	// if there is a valid distance to bottom or vertical distance to home
-	if (PX4_ISFINITE(_dist_to_bottom)) {
-		dist_to_ground = _dist_to_bottom;
-
-	} else if (_sub_home_position.get().valid_alt) {
-		dist_to_ground = -(_position(2) - _sub_home_position.get().z);
-	}
-
 	// limit speed gradually within the altitudes MPC_LAND_ALT1 and MPC_LAND_ALT2
-	if (PX4_ISFINITE(dist_to_ground)) {
-		const float limit_down = math::gradual(dist_to_ground,
+	if (PX4_ISFINITE(_dist_to_ground)) {
+		const float limit_down = math::gradual(_dist_to_ground,
 						       _param_mpc_land_alt2.get(), _param_mpc_land_alt1.get(),
 						       _param_mpc_land_speed.get(), _constraints.speed_down);
-		const float limit_up = math::gradual(dist_to_ground,
+		const float limit_up = math::gradual(_dist_to_ground,
 						     _param_mpc_land_alt2.get(), _param_mpc_land_alt1.get(),
 						     _param_mpc_tko_speed.get(), _constraints.speed_up);
 		_velocity_setpoint(2) = math::constrain(_velocity_setpoint(2), -limit_up, limit_down);
@@ -355,9 +348,7 @@ void FlightTaskManualAltitude::_updateSetpoints()
 		sp.normalize();
 	}
 
-	_thrust_setpoint(0) = sp(0);
-	_thrust_setpoint(1) = sp(1);
-	_thrust_setpoint(2) = NAN;
+	_thrust_setpoint.xy() = sp;
 
 	_updateAltitudeLock();
 	_respectGroundSlowdown();
@@ -371,6 +362,7 @@ bool FlightTaskManualAltitude::_checkTakeoff()
 
 bool FlightTaskManualAltitude::update()
 {
+	_updateConstraintsFromEstimator();
 	_scaleSticks();
 	_updateSetpoints();
 	_constraints.want_takeoff = _checkTakeoff();

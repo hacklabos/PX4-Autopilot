@@ -65,6 +65,7 @@
 #include <arch/board/board.h>
 #include "up_internal.h"
 
+#include <px4_arch/io_timer.h>
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_board_led.h>
 #include <systemlib/px4_macros.h>
@@ -136,10 +137,9 @@ __EXPORT void board_peripheral_reset(int ms)
  ************************************************************************************/
 __EXPORT void board_on_reset(int status)
 {
-	/* configure the GPIO pins to outputs and keep them low */
-
-	const uint32_t gpio[] = PX4_GPIO_PWM_INIT_LIST;
-	px4_gpio_init(gpio, arraySize(gpio));
+	for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
+		px4_arch_configgpio(PX4_MAKE_GPIO_INPUT(io_timer_channel_get_as_pwm_input(i)));
+	}
 
 	if (status >= 0) {
 		up_mdelay(6);
@@ -236,6 +236,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 		syslog(LOG_ERR, "[boot] DMA alloc FAILED\n");
 	}
 
+#if defined(SERIAL_HAVE_RXDMA)
 	/* set up the serial DMA polling */
 	static struct hrt_call serial_dma_call;
 
@@ -252,7 +253,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 		       ts_to_abstime(&ts),
 		       (hrt_callout)stm32_serial_dma_poll,
 		       NULL);
-
+#endif
 
 	/* initial LED state */
 	drv_led_start();

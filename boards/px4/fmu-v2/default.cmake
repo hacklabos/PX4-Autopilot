@@ -36,6 +36,7 @@ px4_add_board(
 		#imu/adis16448
 		#imu/adis16477
 		#imu/adis16497
+		#imu/invensense/mpu6000 # WIP
 		imu/l3gd20
 		imu/lsm303d
 		imu/mpu6000
@@ -53,7 +54,7 @@ px4_add_board(
 		#pca9685
 		#protocol_splitter
 		#pwm_input
-		pwm_out_sim
+		#pwm_out_sim
 		px4fmu
 		px4io
 		#roboclaw
@@ -87,6 +88,7 @@ px4_add_board(
 		#rover_pos_control
 		sensors
 		#sih
+		#temperature_compensation
 		vmount
 		vtol_att_control
 	SYSTEMCMDS
