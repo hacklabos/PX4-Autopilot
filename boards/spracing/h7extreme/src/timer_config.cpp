@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2019 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2012 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,57 +31,21 @@
  *
  ****************************************************************************/
 
-/**
- * @file bootloader_main.c
- *
- * PX4FMU-specific early startup code for bootloader
-*/
+#include <px4_arch/io_timer_hw_description.h>
 
-/****************************************************************************
- * Included Files
- ****************************************************************************/
+constexpr io_timers_t io_timers[MAX_IO_TIMERS] = {
+	initIOTimer(Timer::Timer1, DMA{DMA::Index1}),
+	initIOTimer(Timer::Timer4, DMA{DMA::Index1}),
+};
 
-#include "board_config.h"
-#include "bl.h"
+constexpr timer_io_channels_t timer_io_channels[MAX_TIMER_IO_CHANNELS] = {
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel4}, {GPIO::PortE, GPIO::Pin14}),
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel3}, {GPIO::PortA, GPIO::Pin10}),
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel2}, {GPIO::PortE, GPIO::Pin11}),
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel1}, {GPIO::PortE, GPIO::Pin9}),
+	initIOTimerChannel(io_timers, {Timer::Timer4, Timer::Channel2}, {GPIO::PortD, GPIO::Pin13}),
+};
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <debug.h>
-#include <errno.h>
+constexpr io_timers_channel_mapping_t io_timers_channel_mapping =
+	initIOTimerChannelMapping(io_timers, timer_io_channels);
 
-#include <nuttx/config.h>
-#include <nuttx/board.h>
-#include <chip.h>
-#include <stm32_uart.h>
-#include <arch/board/board.h>
-#include "up_internal.h"
-
-extern int sercon_main(int c, char **argv);
-
-/****************************************************************************
- * Pre-Processor Definitions
- ****************************************************************************/
-__EXPORT void
-stm32_boardinitialize(void)
-{
-	/* configure USB interfaces */
-
-	stm32_usbinitialize();
-}
-
-__EXPORT int board_app_initialize(uintptr_t arg)
-{
-	return 0;
-}
-
-void board_late_initialize(void)
-{
-	sercon_main(0, NULL);
-}
-
-extern void sys_tick_handler(void);
-void board_timerhook(void)
-{
-	sys_tick_handler();
-}

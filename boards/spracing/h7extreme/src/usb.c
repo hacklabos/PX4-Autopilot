@@ -55,7 +55,7 @@
 #include <chip.h>
 #include <stm32_gpio.h>
 #include <stm32_otg.h>
-#include "../../h7extreme/src/board_config.h"
+#include "board_config.h"
 
 /************************************************************************************
  * Definitions

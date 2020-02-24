@@ -47,9 +47,10 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <board_config.h>
+
 #include <stdbool.h>
 
-#include "../../h7extreme/src/board_config.h"
 #include "systemlib/px4_macros.h"
 
 /****************************************************************************

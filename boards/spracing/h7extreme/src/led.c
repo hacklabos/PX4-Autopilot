@@ -43,9 +43,10 @@
 
 #include "chip.h"
 #include "stm32_gpio.h"
+#include "board_config.h"
+
 #include <nuttx/board.h>
 #include <arch/board/board.h>
-#include "../../h7extreme/src/board_config.h"
 
 /*
  * Ideally we'd be able to get these from up_internal.h,

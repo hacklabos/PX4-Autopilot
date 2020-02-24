@@ -41,6 +41,8 @@
  * Included Files
  ************************************************************************************/
 
+#include <board_config.h>
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <debug.h>
@@ -53,8 +55,7 @@
 #include <up_arch.h>
 #include <chip.h>
 #include <stm32_gpio.h>
-#include "../../h7extreme/src/board_config.h"
-#include "../../h7extreme/src/board_config.h"
+#include "board_config.h"
 
 /* Define CS GPIO array */
 static constexpr uint32_t spi1selects_gpio[] = PX4_SENSOR_BUS_CS_GPIO;

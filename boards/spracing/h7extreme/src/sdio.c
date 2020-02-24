@@ -37,6 +37,8 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <board_config.h>
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <debug.h>
@@ -44,10 +46,9 @@
 
 #include <nuttx/sdio.h>
 #include <nuttx/mmcsd.h>
-#include "../../h7extreme/src/board_config.h"
-#include "../../h7extreme/src/board_config.h"
 
 #include "chip.h"
+#include "board_config.h"
 #include "stm32_gpio.h"
 #include "stm32_sdmmc.h"
 
