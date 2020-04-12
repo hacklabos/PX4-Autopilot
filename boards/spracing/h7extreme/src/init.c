@@ -74,6 +74,10 @@
 #include <px4_platform/board_determine_hw_info.h>
 #include <px4_platform/board_dma_alloc.h>
 
+# if defined(FLASH_BASED_PARAMS)
+#  include <parameters/flashparams/flashfs.h>
+#endif
+
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
@@ -159,6 +163,9 @@ stm32_boardinitialize(void)
 
 	stm32_usbinitialize();
 
+	/* configure external memory*/
+	flash_w25q128_init();
+
 }
 
 /****************************************************************************
@@ -236,6 +243,35 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	}
 
 #endif /* CONFIG_MMCSD */
+
+	/* W25128 external flash memory:
+	 * 0x90000000 - 0x90200000 -> 2MB for PX4 firmware
+	 * 0x90200000 - 0x90207000 -> 32KB for FlashFS
+	 */
+
+#if defined(FLASH_BASED_PARAMS)
+	static sector_descriptor_t params_sector_map[] = {
+		{1, 4096, 0x90200000},
+		{2, 4096, 0x90201000},
+		{3, 4096, 0x90202000},
+		{4, 4096, 0x90203000},
+		{5, 4096, 0x90204000},
+		{6, 4096, 0x90205000},
+		{7, 4096, 0x90206000},
+		{8, 4096, 0x90207000},
+		{0, 0, 0},
+	};
+
+	/* Initialize the flashfs layer to use heap allocated memory */
+	int result = parameter_flashfs_init(params_sector_map, NULL, 0);
+
+	if (result != OK) {
+		syslog(LOG_ERR, "[boot] FAILED to init params in FLASH %d\n", result);
+		led_on(LED_AMBER);
+		return -ENODEV;
+	}
+
+#endif
 
 	return OK;
 }
