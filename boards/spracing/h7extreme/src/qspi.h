@@ -89,6 +89,20 @@ extern "C"
  * Public Function Prototypes
  ****************************************************************************/
 
+/* QSPI methods */
+
+QUADSPI_RAMFUNC int qspi_lock(struct qspi_dev_s *dev, bool lock);
+QUADSPI_RAMFUNC uint32_t qspi_setfrequency(struct qspi_dev_s *dev,
+                                  uint32_t frequency);
+QUADSPI_RAMFUNC void     qspi_setmode(struct qspi_dev_s *dev, enum qspi_mode_e mode);
+QUADSPI_RAMFUNC void     qspi_setbits(struct qspi_dev_s *dev, int nbits);
+QUADSPI_RAMFUNC int      qspi_command(struct qspi_dev_s *dev,
+                                  struct qspi_cmdinfo_s *cmdinfo);
+QUADSPI_RAMFUNC int      qspi_memory(struct qspi_dev_s *dev,
+                                  struct qspi_meminfo_s *meminfo);
+QUADSPI_RAMFUNC FAR void *qspi_alloc(FAR struct qspi_dev_s *dev, size_t buflen);
+QUADSPI_RAMFUNC void     qspi_free(FAR struct qspi_dev_s *dev, FAR void *buffer);
+
 /****************************************************************************
  * Name: stm32l4_qspi_initialize
  *

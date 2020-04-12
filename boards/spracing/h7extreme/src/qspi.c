@@ -359,20 +359,6 @@ QUADSPI_RAMFUNC void     qspi_dma_sampledone(struct stm32h7_qspidev_s *priv);
 
 #endif
 
-/* QSPI methods */
-
-QUADSPI_RAMFUNC int qspi_lock(struct qspi_dev_s *dev, bool lock);
-QUADSPI_RAMFUNC uint32_t qspi_setfrequency(struct qspi_dev_s *dev,
-                                  uint32_t frequency);
-QUADSPI_RAMFUNC void     qspi_setmode(struct qspi_dev_s *dev, enum qspi_mode_e mode);
-QUADSPI_RAMFUNC void     qspi_setbits(struct qspi_dev_s *dev, int nbits);
-QUADSPI_RAMFUNC int      qspi_command(struct qspi_dev_s *dev,
-                                  struct qspi_cmdinfo_s *cmdinfo);
-QUADSPI_RAMFUNC int      qspi_memory(struct qspi_dev_s *dev,
-                                  struct qspi_meminfo_s *meminfo);
-QUADSPI_RAMFUNC FAR void *qspi_alloc(FAR struct qspi_dev_s *dev, size_t buflen);
-QUADSPI_RAMFUNC void     qspi_free(FAR struct qspi_dev_s *dev, FAR void *buffer);
-
 /* Initialization */
 
 #if !defined(QSPI_BOOT_IN_MEMORY_MAPPED_MOD)
@@ -1114,7 +1100,6 @@ QUADSPI_RAMFUNC static void qspi_abort(struct stm32h7_qspidev_s *priv)
 
   regval  = qspi_getreg(priv, STM32_QUADSPI_CR_OFFSET);
   regval |= QSPI_CR_ABORT;
-  regval &= ~QSPI_CR_EN;
   qspi_putreg(priv, regval, STM32_QUADSPI_CR_OFFSET);
 }
 
@@ -2238,9 +2223,12 @@ QUADSPI_RAMFUNC int qspi_command(struct qspi_dev_s *dev,
       ret = OK;
     }
 
-  /* Wait for Transfer complete, and not busy */
-
-  qspi_waitstatusflags(priv, QSPI_SR_TCF, 1);
+  /* Wait for Transfer complete, and not busy
+  if (QSPICMD_ISDATA(cmdinfo->flags))
+    {
+      qspi_waitstatusflags(priv, QSPI_SR_TCF, 1);
+    }
+    */
   qspi_waitstatusflags(priv, QSPI_SR_BUSY, 0);
 
 #endif
@@ -2431,7 +2419,7 @@ QUADSPI_RAMFUNC int qspi_memory(struct qspi_dev_s *dev,
 
   /* Wait for Transfer complete, and not busy */
 
-  qspi_waitstatusflags(priv, QSPI_SR_TCF, 1);
+  //qspi_waitstatusflags(priv, QSPI_SR_TCF, 1);
   qspi_waitstatusflags(priv, QSPI_SR_BUSY, 0);
 
   MEMORY_SYNC();
@@ -2910,6 +2898,7 @@ QUADSPI_RAMFUNC void stm32h7_qspi_exit_memorymapped(struct qspi_dev_s *dev)
   priv->memmap = false;
 
   struct qspi_xctnspec_s xctn;
+  xctn.datamode = 3;  /* 3 = quad */
   qspi_ccrconfig(priv, &xctn, CCR_FMODE_INDWR);
 
   qspi_lock(dev, false);

@@ -48,6 +48,12 @@
  ************************************************************************************/
 /* Configuration ********************************************************************/
 
+#define N25Q128_SECTOR_SIZE         (4*1024)
+#define N25Q128_SECTOR_SHIFT        (12)
+#define N25Q128_SECTOR_COUNT        (4096)
+#define N25Q128_PAGE_SIZE           (256)
+#define N25Q128_PAGE_SHIFT          (8)
+
 #define W25Q_DUMMY_CYCLES_FAST_READ_QUAD	6
 #define W25Q_INSTR_FAST_READ_QUAD			0xEB
 #define W25Q_ADDRESS_SIZE					3 // 3 bytes -> 24 bits
@@ -98,6 +104,8 @@ struct qspi_meminfo_s qspi_meminfo = {
 };
 
 struct n25qxxx_dev_s n25qxxx_dev;
+uint8_t cmdbuf[4] = {0u};
+uint8_t readbuf[1] = {0u};
 
 /************************************************************************************
  * Private Functions
@@ -121,6 +129,11 @@ void flash_w25q128_init(void)
 	int qspi_interface_number = 0;
 	ptr_qspi_dev = stm32h7_qspi_initialize(qspi_interface_number);
 	n25qxxx_dev.qspi = ptr_qspi_dev;
+	n25qxxx_dev.cmdbuf = cmdbuf;
+	n25qxxx_dev.readbuf = readbuf;
+	n25qxxx_dev.sectorshift = N25Q128_SECTOR_SHIFT;
+	n25qxxx_dev.pageshift   = N25Q128_PAGE_SHIFT;
+	n25qxxx_dev.nsectors    = N25Q128_SECTOR_COUNT;
 }
 
 __ramfunc__ ssize_t up_progmem_ext_getpage(size_t addr)
@@ -145,12 +158,16 @@ __ramfunc__ ssize_t up_progmem_ext_eraseblock(size_t block)
 __ramfunc__ ssize_t up_progmem_ext_write(size_t addr, FAR const void *buf, size_t count)
 {
 	ssize_t ret_val = 0;
-	px4_enter_critical_section();
+
+	irqstate_t irqstate = px4_enter_critical_section();
 	stm32h7_qspi_exit_memorymapped(ptr_qspi_dev);
 
+	addr &=  0xFFFFFF;
 	n25qxxx_write_page(&n25qxxx_dev, buf, (off_t)addr, count);
 
 	stm32h7_qspi_enter_memorymapped(ptr_qspi_dev, &qspi_meminfo, 0);
+	px4_leave_critical_section(irqstate);
+
 	return ret_val;
 }
 
@@ -171,7 +188,9 @@ __ramfunc__ int n25qxxx_command(FAR struct qspi_dev_s *qspi, uint8_t cmd)
   cmdinfo.addr    = 0;
   cmdinfo.buffer  = NULL;
 
-  return QSPI_COMMAND(qspi, &cmdinfo);
+  int rv;
+  rv = qspi_command(qspi, &cmdinfo);
+  return rv;
 }
 
 /************************************************************************************
@@ -203,7 +222,9 @@ __ramfunc__ int n25qxxx_command_read(FAR struct qspi_dev_s *qspi, uint8_t cmd,
   cmdinfo.addr    = 0;
   cmdinfo.buffer  = buffer;
 
-  return QSPI_COMMAND(qspi, &cmdinfo);
+  int rv;
+  rv = qspi_command(qspi, &cmdinfo);
+  return rv;
 }
 
 
@@ -277,7 +298,7 @@ __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t
       /* Write one page */
 
       n25qxxx_write_enable(priv);
-      ret = QSPI_MEMORY(priv->qspi, &meminfo);
+      ret = qspi_memory(priv->qspi, &meminfo);
       n25qxxx_write_disable(priv);
 
       if (ret < 0)
@@ -302,4 +323,5 @@ __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t
 
   return OK;
 }
+
 
