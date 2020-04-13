@@ -67,10 +67,32 @@
                                           *   0x06                                  */
 #define N25QXXX_WRITE_DISABLE      0x04  /* Write disable command code:             *
                                           *   0x04                                  */
+#define N25QXXX_SUBSECTOR_ERASE    0x20  /* Sub-sector Erase (4 kB)                 *
+                                          *   0x20 | ADDR(MS) | ADDR(MID) |         *
+                                          *   ADDR(LS)                              */
 
+
+/* N25QXXX Registers ****************************************************************/
+/* Status register bit definitions                                                  */
+
+#define STATUS_BUSY_MASK           (1 << 0) /* Bit 0: Device ready/busy status      */
+#  define STATUS_READY             (0 << 0) /*   0 = Not Busy                       */
+#  define STATUS_BUSY              (1 << 0) /*   1 = Busy                           */
 #define STATUS_WEL_MASK            (1 << 1) /* Bit 1: Write enable latch status     */
 #  define STATUS_WEL_DISABLED      (0 << 1) /*   0 = Not Write Enabled              */
 #  define STATUS_WEL_ENABLED       (1 << 1) /*   1 = Write Enabled                  */
+#define STATUS_BP_SHIFT            (2)      /* Bits 2-4: Block protect bits         */
+#define STATUS_BP_MASK             (7 << STATUS_BP_SHIFT)
+#  define STATUS_BP_NONE           (0 << STATUS_BP_SHIFT)
+#  define STATUS_BP_ALL            (7 << STATUS_BP_SHIFT)
+#define STATUS_TB_MASK             (1 << 5) /* Bit 5: Top / Bottom Protect          */
+#  define STATUS_TB_TOP            (0 << 5) /*   0 = BP2-BP0 protect Top down       */
+#  define STATUS_TB_BOTTOM         (1 << 5) /*   1 = BP2-BP0 protect Bottom up      */
+#define STATUS_BP3_MASK            (1 << 5) /* Bit 6: BP3                           */
+#define STATUS_SRP0_MASK           (1 << 7) /* Bit 7: Status register protect 0     */
+#  define STATUS_SRP0_UNLOCKED     (0 << 7) /*   0 = WP# no effect / PS Lock Down   */
+#  define STATUS_SRP0_LOCKED       (1 << 7) /*   1 = WP# protect / OTP Lock Down    */
+
 /************************************************************************************
  * Private Types
  ************************************************************************************/
@@ -120,6 +142,14 @@ __ramfunc__ void n25qxxx_write_disable(FAR struct n25qxxx_dev_s *priv);
 __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t *buffer,
                              off_t address, size_t buflen);
 
+__ramfunc__ int n25qxxx_erase_sector(struct n25qxxx_dev_s *priv, off_t sector);
+
+__ramfunc__ bool n25qxxx_isprotected(FAR struct n25qxxx_dev_s *priv, uint8_t status,
+                               off_t address);
+
+__ramfunc__  int n25qxxx_command_address(FAR struct qspi_dev_s *qspi, uint8_t cmd,
+                                  off_t addr, uint8_t addrlen);
+
 /************************************************************************************
  * Public Functions
  ************************************************************************************/
@@ -138,21 +168,23 @@ void flash_w25q128_init(void)
 
 __ramfunc__ ssize_t up_progmem_ext_getpage(size_t addr)
 {
-	ssize_t ret_val = 0;
+	ssize_t page_address = (addr - STM32_FMC_BANK4)/N25Q128_SECTOR_COUNT;
 
-	stm32h7_qspi_exit_memorymapped(ptr_qspi_dev);
-
-	stm32h7_qspi_enter_memorymapped(ptr_qspi_dev, &qspi_meminfo, 0);
-	return ret_val;
+	return page_address;
 }
 
 __ramfunc__ ssize_t up_progmem_ext_eraseblock(size_t block)
 {
-	ssize_t ret_val = 0;
+	ssize_t size = N25Q128_SECTOR_COUNT;
+
+	irqstate_t irqstate = px4_enter_critical_section();
 	stm32h7_qspi_exit_memorymapped(ptr_qspi_dev);
 
+	n25qxxx_erase_sector(&n25qxxx_dev, block);
+
 	stm32h7_qspi_enter_memorymapped(ptr_qspi_dev, &qspi_meminfo, 0);
-	return ret_val;
+	px4_leave_critical_section(irqstate);
+	return size;
 }
 
 __ramfunc__ ssize_t up_progmem_ext_write(size_t addr, FAR const void *buf, size_t count)
@@ -324,4 +356,123 @@ __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t
   return OK;
 }
 
+/************************************************************************************
+ * Name:  n25qxxx_erase_sector
+ ************************************************************************************/
 
+__ramfunc__ int n25qxxx_erase_sector(struct n25qxxx_dev_s *priv, off_t sector)
+{
+  off_t address;
+  uint8_t status;
+
+  finfo("sector: %08lx\n", (unsigned long)sector);
+
+  /* Check that the flash is ready and unprotected */
+
+  status = n25qxxx_read_status(priv);
+  if ((status & STATUS_BUSY_MASK) != STATUS_READY)
+    {
+      ferr("ERROR: Flash busy: %02x", status);
+      return -EBUSY;
+    }
+
+  /* Get the address associated with the sector */
+
+  address = (off_t)sector << priv->sectorshift;
+
+  if ((status & (STATUS_BP3_MASK|STATUS_BP_MASK)) != 0 &&
+      n25qxxx_isprotected(priv, status, address))
+    {
+      ferr("ERROR: Flash protected: %02x", status);
+      return -EACCES;
+    }
+
+  /* Send the sector erase command */
+
+  n25qxxx_write_enable(priv);
+  n25qxxx_command_address(priv->qspi, N25QXXX_SUBSECTOR_ERASE, address, 3);
+
+  /* Wait for erasure to finish */
+
+  while ((n25qxxx_read_status(priv) & STATUS_BUSY_MASK) != 0);
+
+  return OK;
+}
+
+/************************************************************************************
+ * Name: n25qxxx_isprotected
+ ************************************************************************************/
+
+__ramfunc__ bool n25qxxx_isprotected(FAR struct n25qxxx_dev_s *priv, uint8_t status,
+                               off_t address)
+{
+  off_t protstart;
+  off_t protend;
+  off_t protsize;
+  unsigned int bp;
+
+  /* The BP field is spread across non-contiguous bits */
+
+  bp = (status & STATUS_BP_MASK) >> STATUS_BP_SHIFT;
+  if (status & STATUS_BP3_MASK)
+    {
+      bp |= 8;
+    }
+
+  /* the BP field is essentially the power-of-two of the number of 64k sectors,
+   * saturated to the device size.
+   */
+
+  if ( 0 == bp )
+    {
+      return false;
+    }
+
+  protsize = 0x00010000;
+  protsize <<= (protsize << (bp - 1));
+  protend = (1 << priv->sectorshift) * priv->nsectors;
+  if ( protsize > protend )
+    {
+      protsize = protend;
+    }
+
+  /* The final protection range then depends on if the protection region is
+   * configured top-down or bottom up  (assuming CMP=0).
+   */
+
+  if ((status & STATUS_TB_MASK) != 0)
+    {
+      protstart = 0x00000000;
+      protend   = protstart + protsize;
+    }
+  else
+    {
+      protstart = protend - protsize;
+      /* protend already computed above */
+    }
+
+  return (address >= protstart && address < protend);
+}
+
+/************************************************************************************
+ * Name: n25qxxx_command_address
+ ************************************************************************************/
+
+__ramfunc__  int n25qxxx_command_address(FAR struct qspi_dev_s *qspi, uint8_t cmd,
+                                  off_t addr, uint8_t addrlen)
+{
+  struct qspi_cmdinfo_s cmdinfo;
+
+  finfo("CMD: %02x Address: %04lx addrlen=%d\n", cmd, (unsigned long)addr, addrlen);
+
+  cmdinfo.flags   = QSPICMD_ADDRESS;
+  cmdinfo.addrlen = addrlen;
+  cmdinfo.cmd     = cmd;
+  cmdinfo.buflen  = 0;
+  cmdinfo.addr    = addr;
+  cmdinfo.buffer  = NULL;
+
+  int rv;
+  rv = qspi_command(qspi, &cmdinfo);
+  return rv;
+}

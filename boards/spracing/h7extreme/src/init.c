@@ -234,6 +234,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 		led_on(LED_RED);
 	}
 
+#if 0
 #ifdef CONFIG_MMCSD
 	int ret = stm32_sdio_initialize();
 
@@ -243,22 +244,32 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	}
 
 #endif /* CONFIG_MMCSD */
+#endif
+
 
 	/* W25128 external flash memory:
 	 * 0x90000000 - 0x90200000 -> 2MB for PX4 firmware
 	 * 0x90200000 - 0x90207000 -> 32KB for FlashFS
 	 */
 
+	/* Page calculator for W25Q128:
+	 * page = (address - 0x90000000)/0x1000 (sector size is 0x1000 (4096 bytes))
+	 * examples:
+	 * 1) address = 0x90001000, page = (0x90001000 - 0x90000000)/0x1000 = 0x1
+	 * 2) address = 0x90200000, page = (0x90200000 - 0x90000000)/0x1000 = 0x200
+	 * 3) address = 0x90200000, page = (0x90200100 - 0x90000000)/0x1000 = 0x201
+	 */
+
 #if defined(FLASH_BASED_PARAMS)
 	static sector_descriptor_t params_sector_map[] = {
-		{1, 4096, 0x90200000},
-		{2, 4096, 0x90201000},
-		{3, 4096, 0x90202000},
-		{4, 4096, 0x90203000},
-		{5, 4096, 0x90204000},
-		{6, 4096, 0x90205000},
-		{7, 4096, 0x90206000},
-		{8, 4096, 0x90207000},
+		{0x200, 4096, 0x90200000},
+		/*{0x201, 4096, 0x90201000},
+		{0x202, 4096, 0x90202000},
+		{0x203, 4096, 0x90203000},
+		{0x204, 4096, 0x90204000},
+		{0x205, 4096, 0x90205000},
+		{0x206, 4096, 0x90206000},
+		{0x200, 4096, 0x90207000}, */
 		{0, 0, 0},
 	};
 
