@@ -142,6 +142,8 @@ __ramfunc__ void n25qxxx_write_disable(FAR struct n25qxxx_dev_s *priv);
 __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t *buffer,
                              off_t address, size_t buflen);
 
+__ramfunc__ int n25qxxx_write_one_page(struct n25qxxx_dev_s *priv,struct qspi_meminfo_s *meminfo);
+
 __ramfunc__ int n25qxxx_erase_sector(struct n25qxxx_dev_s *priv, off_t sector);
 
 __ramfunc__ bool n25qxxx_isprotected(FAR struct n25qxxx_dev_s *priv, uint8_t status,
@@ -168,7 +170,7 @@ void flash_w25q128_init(void)
 
 __ramfunc__ ssize_t up_progmem_ext_getpage(size_t addr)
 {
-	ssize_t page_address = (addr - STM32_FMC_BANK4)/N25Q128_SECTOR_COUNT;
+	ssize_t page_address = (addr - STM32_FMC_BANK4) / N25Q128_SECTOR_COUNT;
 
 	return page_address;
 }
@@ -302,12 +304,12 @@ __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t
   struct qspi_meminfo_s meminfo;
   unsigned int pagesize;
   unsigned int npages;
-  int ret;
+  unsigned int firstpagesize = 0;
+  int ret = OK;
   unsigned int i;
 
   finfo("address: %08lx buflen: %u\n", (unsigned long)address, (unsigned)buflen);
 
-  npages   = (buflen >> priv->pageshift);
   pagesize = (1 << priv->pageshift);
 
   /* Set up non-varying parts of transfer description */
@@ -315,30 +317,45 @@ __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t
   meminfo.flags   = QSPIMEM_WRITE;
   meminfo.cmd     = N25QXXX_PAGE_PROGRAM;
   meminfo.addrlen = 3;
-  meminfo.buflen  = pagesize;
   meminfo.dummies = 0;
+  meminfo.buffer = (void *)buffer;
 
-  /* Then write each page */
+  if(0 != (address % pagesize)) {
+      firstpagesize = pagesize - (address % pagesize);
+  }
 
-  for (i = 0; i < npages; i++)
+  if(buflen <= firstpagesize) {
+      meminfo.addr   = address;
+      meminfo.buflen  = buflen;
+      ret = n25qxxx_write_one_page(priv, &meminfo);
+
+  } else {
+
+    if(firstpagesize > 0)
+    {
+      meminfo.addr   = address;
+      meminfo.buflen  = firstpagesize;
+      ret = n25qxxx_write_one_page(priv, &meminfo);
+
+      buffer  += firstpagesize;
+      address += firstpagesize;
+      buflen -= firstpagesize;
+    }
+
+    npages   = (buflen >> priv->pageshift);
+
+    meminfo.buflen  = pagesize;
+
+    /* Then write each page */
+
+    for (i = 0; (i < npages) && (ret == OK); i++)
     {
       /* Set up varying parts of the transfer description */
 
       meminfo.addr   = address;
       meminfo.buffer = (void *)buffer;
 
-      /* Write one page */
-
-      n25qxxx_write_enable(priv);
-      ret = qspi_memory(priv->qspi, &meminfo);
-      n25qxxx_write_disable(priv);
-
-      if (ret < 0)
-        {
-          ferr("ERROR: QSPI_MEMORY failed writing address=%06x\n",
-               address);
-          return ret;
-        }
+      ret = n25qxxx_write_one_page(priv, &meminfo);
 
       /* Update for the next time through the loop */
 
@@ -347,13 +364,34 @@ __ramfunc__ int n25qxxx_write_page(struct n25qxxx_dev_s *priv, FAR const uint8_t
       buflen  -= pagesize;
     }
 
-  /* The transfer should always be an even number of sectors and hence also
-   * pages.  There should be no remainder.
-   */
+    if ((ret == OK) && (buflen > 0))
+    {
+      meminfo.addr   = address;
+      meminfo.buffer = (void *)buffer;
+      meminfo.buflen = buflen;
 
-  DEBUGASSERT(buflen == 0);
+      ret = n25qxxx_write_one_page(priv, &meminfo);
+    }
+  }
 
-  return OK;
+  return ret;
+}
+
+__ramfunc__ int n25qxxx_write_one_page(struct n25qxxx_dev_s *priv,struct qspi_meminfo_s *meminfo)
+{
+    int ret;
+
+    n25qxxx_write_enable(priv);
+    ret = qspi_memory(priv->qspi, meminfo);
+    n25qxxx_write_disable(priv);
+
+    if (ret < 0)
+    {
+        ferr("ERROR: QSPI_MEMORY failed writing address=%06x\n",
+        meminfo->addr);
+    }
+
+    return ret;
 }
 
 /************************************************************************************

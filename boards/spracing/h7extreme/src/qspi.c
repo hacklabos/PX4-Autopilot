@@ -2897,7 +2897,7 @@ QUADSPI_RAMFUNC void stm32h7_qspi_exit_memorymapped(struct qspi_dev_s *dev)
   qspi_abort(priv);
   priv->memmap = false;
 
-  struct qspi_xctnspec_s xctn;
+  struct qspi_xctnspec_s xctn = {0};
   xctn.datamode = 3;  /* 3 = quad */
   qspi_ccrconfig(priv, &xctn, CCR_FMODE_INDWR);
 
