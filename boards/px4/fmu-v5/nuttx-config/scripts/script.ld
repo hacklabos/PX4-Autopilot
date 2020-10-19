@@ -90,6 +90,7 @@ ENTRY(_stext)
  */
 EXTERN(abort)
 EXTERN(_bootdelay_signature)
+EXTERN(_main_toc)
 
 SECTIONS
 {
@@ -103,6 +104,7 @@ SECTIONS
 		_bootdelay_signature = ABSOLUTE(.);
 		FILL(0xffecc2925d7d05c5)
 		. += 8;
+		*(.main_toc)
 		*(.text .text.*)
 		*(.fixup)
 		*(.gnu.warning)
@@ -184,6 +186,10 @@ SECTIONS
 		. = ALIGN(4);
 		_eramfuncs = .;
 	} > ITCM_RAM AT > FLASH_AXIM
+
+	.signature : {
+		_BOOT_SIGNATURE = ALIGN(4);
+	} > FLASH_AXIM
 
 	_framfuncs = LOADADDR(.ramfunc);
 }
