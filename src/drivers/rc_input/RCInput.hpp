@@ -91,7 +91,8 @@ private:
 		RC_SCAN_DSM,
 		RC_SCAN_SUMD,
 		RC_SCAN_ST24,
-		RC_SCAN_CRSF
+		RC_SCAN_CRSF,
+		RC_SCAN_GHST
 	} _rc_scan_state{RC_SCAN_SBUS};
 
 	static constexpr char const *RC_SCAN_STRING[6] {

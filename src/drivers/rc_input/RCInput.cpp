@@ -589,7 +589,53 @@ void RCInput::Run()
 						fill_rc_in(_raw_rc_count, _raw_rc_values, cycle_timestamp, false, false, 0);
 
 						// Enable CRSF Telemetry only on the Omnibus, because on Pixhawk (-related) boards
-						// we cannot write to the RC UART
+						// We cannot write to the pin UART_RX (or USART_RX). UART_TX pins support single-wire communication (Half-Duplex)
+						// It might work on FMU-v5. Or another option is to use a different UART port
+#ifdef CONFIG_ARCH_BOARD_OMNIBUS_F4SD
+
+						if (!_rc_scan_locked && !_crsf_telemetry) {
+							_crsf_telemetry = new CRSFTelemetry(_rcs_fd);
+						}
+
+#endif /* CONFIG_ARCH_BOARD_OMNIBUS_F4SD */
+
+						_rc_scan_locked = true;
+
+						if (_crsf_telemetry) {
+							_crsf_telemetry->update(cycle_timestamp);
+						}
+					}
+				}
+
+			} else {
+				// Scan the next protocol
+				set_rc_scan_state(RC_SCAN_GHST);
+			}
+
+			break;
+
+		case RC_SCAN_GHST:
+			if (_rc_scan_begin == 0) {
+				_rc_scan_begin = cycle_timestamp;
+				// Configure serial port for GHST
+				ghst_config(_rcs_fd, board_rc_singlewire(_device));
+				rc_io_invert(false);
+
+			} else if (_rc_scan_locked
+				   || cycle_timestamp - _rc_scan_begin < rc_scan_max) {
+
+				// parse new data
+				if (newBytes > 0) {
+					rc_updated = ghst_parse(cycle_timestamp, &_rcs_buf[0], newBytes, &_raw_rc_values[0], &_raw_rc_count,
+								input_rc_s::RC_INPUT_MAX_CHANNELS);
+
+					if (rc_updated) {
+						// we have a new CRSF frame. Publish it.
+						_rc_in.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_GHST;
+						fill_rc_in(_raw_rc_count, _raw_rc_values, cycle_timestamp, false, false, 0);
+
+						// Enable GHST Telemetry only on the Omnibus, because on Pixhawk (-related) boards
+						// We cannot write to the pin UART_RX (or USART_RX). UART_TX pins support single-wire communication (Half-Duplex)
 						// It might work on FMU-v5. Or another option is to use a different UART port
 #ifdef CONFIG_ARCH_BOARD_OMNIBUS_F4SD
 
@@ -613,6 +659,7 @@ void RCInput::Run()
 			}
 
 			break;
+
 		}
 
 		perf_end(_cycle_perf);
