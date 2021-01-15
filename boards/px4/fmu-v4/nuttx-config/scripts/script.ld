@@ -50,7 +50,7 @@
 
 MEMORY
 {
-    flash (rx)   : ORIGIN = 0x08004000, LENGTH = 2032K
+    flash (rx)   : ORIGIN = 0x08008000, LENGTH = 2016K
     sram (rwx)   : ORIGIN = 0x20000000, LENGTH = 192K
     ccsram (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
 }
@@ -66,6 +66,7 @@ EXTERN(_vectors)	/* force the vectors to be included in the output */
  */
 EXTERN(abort)
 EXTERN(_bootdelay_signature)
+EXTERN(_main_toc)
 
 SECTIONS
 {
@@ -79,6 +80,7 @@ SECTIONS
 		_bootdelay_signature = ABSOLUTE(.);
 		FILL(0xffecc2925d7d05c5)
 		. += 8;
+		*(.main_toc)
 		*(.text .text.*)
 		*(.fixup)
 		*(.gnu.warning)
@@ -151,4 +153,8 @@ SECTIONS
 	.debug_line 0 : { *(.debug_line) }
 	.debug_pubnames 0 : { *(.debug_pubnames) }
 	.debug_aranges 0 : { *(.debug_aranges) }
+
+	.signature : {
+		_BOOT_SIGNATURE = ALIGN(4);
+	} > flash
 }

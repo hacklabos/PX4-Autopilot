@@ -2,7 +2,6 @@
 
 import nacl.encoding
 import nacl.signing
-import nacl.encoding
 import nacl.hash
 import struct
 import binascii
