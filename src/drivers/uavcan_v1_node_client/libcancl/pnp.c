@@ -110,7 +110,7 @@ uint32_t initPNPAllocatee(CanardInstance *ins, uint8_t *unique_id)
 int32_t PNPAllocRequest(CanardInstance *ins)
 {
 	int32_t result;
-	CanardMicrosecond transmission_deadline = getMonotonicTimestampUSec() + 2000 * 10;
+	CanardMicrosecond transmission_deadline = getMonotonicTimestampUSec() + 1000 * 10;
 
 	// Callee should restart timer
 
