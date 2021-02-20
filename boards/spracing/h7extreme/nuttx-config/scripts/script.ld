@@ -150,8 +150,6 @@ SECTIONS
 		*vehicle_acceleration.a:*(.text* .rodata*)
 		*vehicle_angular_velocity.a:*(.text* .rodata*)
 		*modules__attitude_estimator_q.a:*(.text* .rodata*)
-		*stm32_spi.o(.text* .rodata*)
-		*stm32_dma.o(.text* .rodata*)
 
 		_end_itcm = ABSOLUTE(.);
 	} > itcm AT > qspi2
@@ -161,6 +159,8 @@ SECTIONS
 		_start_sram = ABSOLUTE(.);
 		. = ALIGN(4);
 
+		*stm32_spi.o(.text* .rodata*)
+		*stm32_dma.o(.text* .rodata*)
 		*drivers__dshot.a:*(.text* .rodata*)
 		*modules__flight_mode_manager.a:*(.text* .rodata*)
 		*modules__mc_pos_control.a:*(.text* .rodata*)
