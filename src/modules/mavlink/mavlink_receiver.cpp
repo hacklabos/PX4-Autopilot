@@ -1668,6 +1668,7 @@ MavlinkReceiver::handle_message_battery_status(mavlink_message_t *msg)
 	battery_status.cell_count = cell_count;
 	battery_status.temperature = (float)battery_mavlink.temperature;
 	battery_status.connected = true;
+	battery_status.led_temperature = battery_mavlink.energy_consumed;
 
 	// Set the battery warning based on remaining charge.
 	//  Note: Smallest values must come first in evaluation.
