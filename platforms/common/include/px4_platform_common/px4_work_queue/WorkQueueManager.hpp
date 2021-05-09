@@ -76,7 +76,7 @@ static constexpr wq_config_t UART0{"wq:UART0", 1400, -17};
 static constexpr wq_config_t UART1{"wq:UART1", 1400, -18};
 static constexpr wq_config_t UART2{"wq:UART2", 1400, -19};
 static constexpr wq_config_t UART3{"wq:UART3", 1400, -20};
-static constexpr wq_config_t UART4{"wq:UART4", 1400, -21};
+static constexpr wq_config_t UART4{"wq:UART4", 2400, -21};
 static constexpr wq_config_t UART5{"wq:UART5", 1400, -22};
 static constexpr wq_config_t UART6{"wq:UART6", 1400, -23};
 static constexpr wq_config_t UART7{"wq:UART7", 1400, -24};
