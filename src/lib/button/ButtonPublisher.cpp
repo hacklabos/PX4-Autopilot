@@ -32,17 +32,17 @@
  ****************************************************************************/
 
 /**
- * @file button.cpp
+ * @file ButtonPublisher.cpp
  *
  * Library for button functionality.
  *
  */
 
-#include <button/Button.hpp>
+#include <button/ButtonPublisher.hpp>
 
 using namespace time_literals;
 
-Button::Button()
+ButtonPublisher::ButtonPublisher()
 {
 	/*
 	 * Safety can be turned off with the CBRK_IO_SAFETY parameter.
@@ -51,35 +51,37 @@ Button::Button()
 	_safety_disabled = circuit_breaker_enabled("CBRK_IO_SAFETY", CBRK_IO_SAFETY_KEY);
 }
 
-void Button::safetyOffEvent(uint8_t source, bool triggered)
+void ButtonPublisher::safetyButtonTriggerEvent(uint8_t source, bool triggered)
 {
-	bool safety_off = triggered || _safety_disabled;
-
 	/*
-	 * When the safety button is triggered safety goes off.
+	 * When the safety button is triggered, safety goes off.
 	 * Note! Safety cannot be turned on again by button because a button
 	 * hardware problem could accidentally disable it in flight.
 	 */
 
+	if(!_safety_button_triggered) {
+		_safety_button_triggered = triggered || _safety_disabled;
+	}
+
 	// publish immediately on trigger, otherwise at 1 Hz for logging
-	if ((hrt_elapsed_time(&_safety_button.timestamp) >= 1_s) || triggered) {
+	if ((hrt_elapsed_time(&_safety_button.timestamp) >= 1_s) || _safety_button_triggered) {
 
 		_safety_button.source = source;
 		_safety_button.switch_available = true;
-		_safety_button.triggered = safety_off;
+		_safety_button.triggered = _safety_button_triggered;
 		_safety_button.timestamp = hrt_absolute_time();
 
-		_to_safety_button.publish(_safety_button);
+		_safety_button_pub.publish(_safety_button);
 	}
 }
 
-void Button::pairingEvent(uint8_t source)
+void ButtonPublisher::pairingEvent()
 {
 	vehicle_command_s vcmd{};
 	vcmd.command = vehicle_command_s::VEHICLE_CMD_START_RX_PAIR;
 	vcmd.param1 = 10.f; // GCS pairing request handled by a companion.
 	vcmd.timestamp = hrt_absolute_time();
-	_to_command.publish(vcmd);
+	_vehicle_command_pub.publish(vcmd);
 	PX4_DEBUG("Sending GCS pairing request");
 
 	led_control_s led_control{};
@@ -89,16 +91,16 @@ void Button::pairingEvent(uint8_t source)
 	led_control.num_blinks = 1;
 	led_control.priority = 0;
 	led_control.timestamp = hrt_absolute_time();
-	_to_led_control.publish(led_control);
+	led_control_pub.publish(led_control);
 
 	tune_control_s tune_control{};
 	tune_control.tune_id = tune_control_s::TUNE_ID_NOTIFY_POSITIVE;
 	tune_control.volume = tune_control_s::VOLUME_LEVEL_DEFAULT;
 	tune_control.timestamp = hrt_absolute_time();
-	_to_tune_control.publish(tune_control);
+	_tune_control_pub.publish(tune_control);
 }
 
-void Button::printStatus()
+void ButtonPublisher::printStatus()
 {
 	PX4_INFO("Safety Disabled: %s", _safety_disabled ? "yes" : "no");
 	PX4_INFO("Safety State: %s", _safety_button.triggered ? "off" : "on");

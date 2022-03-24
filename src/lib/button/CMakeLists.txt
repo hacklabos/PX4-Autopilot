@@ -31,4 +31,5 @@
 #
 ############################################################################
 
-px4_add_library(button Button.cpp)
+px4_add_library(button_publisher ButtonPublisher.cpp)
+px4_add_library(button_subscriber ButtonSubscriber.cpp)

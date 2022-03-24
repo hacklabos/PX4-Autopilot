@@ -61,7 +61,7 @@
 #include <lib/perf/perf_counter.h>
 #include <lib/rc/dsm.h>
 #include <lib/systemlib/mavlink_log.h>
-#include <lib/button/Button.hpp>
+#include <lib/button/ButtonPublisher.hpp>
 
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
@@ -211,7 +211,7 @@ private:
 	uORB::PublicationMulti<input_rc_s>	_to_input_rc{ORB_ID(input_rc)};
 	uORB::Publication<px4io_status_s>	_px4io_status_pub{ORB_ID(px4io_status)};
 
-	Button 			_button;
+	ButtonPublisher	_button_publisher;
 
 	bool			_lockdown_override{false};	///< override the safety lockdown
 

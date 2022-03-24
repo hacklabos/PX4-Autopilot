@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013, 2014 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013 - 2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,10 +50,10 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/actuator_armed.h>
-#include <uORB/topics/button_event.h>
 #include <uORB/topics/commander_state.h>
 #include <uORB/topics/vehicle_status_flags.h>
 #include <px4_platform_common/events.h>
+#include <lib/button/ButtonSubscriber.hpp>
 
 typedef enum {
 	TRANSITION_DENIED = -1,
@@ -108,7 +108,7 @@ enum RCLossExceptionBits {
 };
 
 transition_result_t
-arming_state_transition(vehicle_status_s &status, const vehicle_control_mode_s &control_mode, const button_event_s &safety_button,
+arming_state_transition(vehicle_status_s &status, const vehicle_control_mode_s &control_mode, const ButtonSubscriber::safety_s &safety,
 			const arming_state_t new_arming_state,
 			actuator_armed_s &armed, const bool fRunPreArmChecks, orb_advert_t *mavlink_log_pub,
 			vehicle_status_flags_s &status_flags, const PreFlightCheck::arm_requirements_t &arm_requirements,

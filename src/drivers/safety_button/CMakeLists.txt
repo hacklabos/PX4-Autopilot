@@ -37,6 +37,6 @@ px4_add_module(
 	SRCS
 		SafetyButton.cpp
 	DEPENDS
-		button
+		button_publisher
 		px4_work_queue
 	)

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2022 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,51 +31,35 @@
  *
  ****************************************************************************/
 
-#pragma once
+/**
+ * @file ButtonSubscriber.cpp
+ *
+ * Library for button functionality.
+ *
+ */
 
-#include <float.h>
+#include <button/ButtonSubscriber.hpp>
 
-#include <drivers/drv_hrt.h>
-#include <px4_platform_common/module.h>
-#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
-#include <button/ButtonPublisher.hpp>
+using namespace time_literals;
 
-class SafetyButton : public ModuleBase<SafetyButton>, public px4::ScheduledWorkItem
+ButtonSubscriber::ButtonSubscriber()
 {
-public:
-	SafetyButton();
-	~SafetyButton() override;
+}
 
-	/** @see ModuleBase */
-	static int task_spawn(int argc, char *argv[]);
+bool ButtonSubscriber::safetyButtonUpdated(safety_s &safety)
+{
+	bool updated = false;
 
-	/** @see ModuleBase */
-	static int custom_command(int argc, char *argv[]);
+	for (int i = 0; i < _safety_button_subs.size(); i++) {
+		button_event_s button_event;
 
-	/** @see ModuleBase */
-	static int print_usage(const char *reason = nullptr);
+		if (_safety_button_subs[i].update(&button_event) && (button_event.timestamp != 0u)) {
+			safety.timestamp = button_event.timestamp;
+			safety.safety_switch_available |= button_event.switch_available;
+			safety.safety_off |= button_event.triggered; // triggered safety button activates safety off
+			updated |= true;
+		}
+	}
 
-	/** @see ModuleBase::print_status() */
-	int print_status() override;
-
-	int Start();
-
-private:
-	void Run() override;
-
-	void CheckSafetyRequest(bool button_pressed);
-	void CheckPairingRequest(bool button_pressed);
-	void FlashButton();
-
-	ButtonPublisher	_button_publisher;
-	uint8_t			_button_counter{0};
-	uint8_t			_blink_counter{0};
-	bool			_button_prev_sate{false};	///< Previous state of the HW button
-
-	// Pairing request
-	hrt_abstime		_pairing_start{0};
-	int				_pairing_button_counter{0};
-
-	uORB::Subscription	_armed_sub{ORB_ID(actuator_armed)};
-
-};
+	return updated;
+}

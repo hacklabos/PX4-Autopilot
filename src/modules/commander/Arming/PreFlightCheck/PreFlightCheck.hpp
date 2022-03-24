@@ -41,11 +41,11 @@
 #pragma once
 
 #include <uORB/uORB.h>
-#include <uORB/topics/button_event.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_status_flags.h>
 #include <uORB/topics/vehicle_status.h>
 #include <drivers/drv_hrt.h>
+#include <lib/button/ButtonSubscriber.hpp>
 
 typedef bool (*sens_check_func_t)(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 				  const bool is_mandatory, bool &report_fail);
@@ -95,7 +95,7 @@ public:
 
 	static bool preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_status_flags_s &status_flags,
 				const vehicle_control_mode_s &control_mode,
-				const button_event_s &safety_off, const arm_requirements_t &arm_requirements, vehicle_status_s &status,
+				const ButtonSubscriber::safety_s &safety, const arm_requirements_t &arm_requirements, vehicle_status_s &status,
 				bool report_fail = true);
 
 private:

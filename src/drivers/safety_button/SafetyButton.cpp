@@ -80,7 +80,7 @@ SafetyButton::CheckSafetyRequest(bool button_pressed)
 		_button_counter = 0;
 	}
 
-	_button.safetyOffEvent(button_event_s::BUTTON_SOURCE_GPIO, trigger_safety_off);
+	_button_publisher.safetyButtonTriggerEvent(button_event_s::BUTTON_SOURCE_GPIO, trigger_safety_off);
 }
 
 void
@@ -103,8 +103,8 @@ SafetyButton::CheckPairingRequest(bool button_pressed)
 		++_pairing_button_counter;
 	}
 
-	if (_pairing_button_counter == 3) {
-		_button.pairingEvent(button_event_s::BUTTON_SOURCE_GPIO);
+	if (_pairing_button_counter == ButtonPublisher::PAIR_BUTTON_COUNT) {
+		_button_publisher.pairingEvent();
 		// reset state
 		_pairing_start = 0;
 		_pairing_button_counter = 0;
@@ -203,7 +203,7 @@ SafetyButton::custom_command(int argc, char *argv[])
 int
 SafetyButton::print_status()
 {
-	_button.printStatus();
+	_button_publisher.printStatus();
 	return 0;
 }
 

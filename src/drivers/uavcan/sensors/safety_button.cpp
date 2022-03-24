@@ -58,10 +58,18 @@ void UavcanSafetyButtonBridge::button_sub_cb(const
 		uavcan::ReceivedDataStructure<ardupilot::indication::Button> &msg)
 {
 	bool is_safety = msg.button == ardupilot::indication::Button::BUTTON_SAFETY;
-	bool pressed = msg.press_time >= 10; // 0.1s increments
+	bool pressed = msg.press_time >= 10; // 0.1s increments (1s press time for safety button event)
 
 	if (is_safety && pressed) {
-		_button.safetyOffEvent(button_event_s::BUTTON_SOURCE_UAVCAN, true);
+		_button_publisher.safetyButtonTriggerEvent(button_event_s::BUTTON_SOURCE_UAVCAN, true);
+	}
+
+	if (is_safety) {
+		_pairing_button_counter++;
+		if (_pairing_button_counter == ButtonPublisher::PAIR_BUTTON_COUNT) {
+			_button_publisher.pairingEvent();
+			_pairing_button_counter = 0u;
+		}
 	}
 }
 

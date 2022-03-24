@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 /**
- * @file button.h
+ * @file ButtonPublisher.hpp
  *
  * Library for button functionality.
  *
@@ -44,6 +44,7 @@
 #include <drivers/drv_tone_alarm.h>
 #include <drivers/drv_hrt.h>
 #include <uORB/Publication.hpp>
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/button_event.h>
@@ -51,39 +52,39 @@
 #include <uORB/topics/led_control.h>
 #include <uORB/topics/tune_control.h>
 
-class Button
+class ButtonPublisher
 {
 public:
-	Button();
-	virtual ~Button() = default;
+	ButtonPublisher();
+	virtual ~ButtonPublisher() = default;
 
 	/**
-	 * Function for publishing safety off event
+	 * Function for publishing safety button trigger event
 	 *
 	 * @param source button source type
-	 * @param triggered flag indicating event is triggered
+	 * @param triggered flag indicating if event is triggered
 	 */
-	virtual void safetyOffEvent(uint8_t source, bool triggered);
+	virtual void safetyButtonTriggerEvent(uint8_t source, bool triggered);
 
 	/**
 	 * Function for triggering pairing event
-	 *
-	 * @param source button source type
 	 */
-	virtual void pairingEvent(uint8_t source);
+	virtual void pairingEvent();
 
 
 	virtual void printStatus();
 
+	static constexpr uint8_t PAIR_BUTTON_COUNT{3};
 
 private:
 
-	bool				_safety_disabled{false};	///< circuit breaker to disable the safety button
+	bool _safety_disabled{false};			//!< circuit breaker to disable the safety button
+	bool _safety_button_triggered{false};	//!< flag indicating if the safety button was triggered
 
-	uORB::Publication<button_event_s>		_to_safety_button{ORB_ID(safety_button)};
-	uORB::Publication<vehicle_command_s>	_to_command{ORB_ID(vehicle_command)};
-	uORB::Publication<led_control_s> 		_to_led_control{ORB_ID(led_control)};
-	uORB::Publication<tune_control_s> 		_to_tune_control{ORB_ID(tune_control)};
+	uORB::PublicationMulti<button_event_s>	_safety_button_pub{ORB_ID(safety_button)};
+	uORB::Publication<vehicle_command_s>	_vehicle_command_pub{ORB_ID(vehicle_command)};
+	uORB::Publication<led_control_s> 		led_control_pub{ORB_ID(led_control)};
+	uORB::Publication<tune_control_s> 		_tune_control_pub{ORB_ID(tune_control)};
 
 	button_event_s _safety_button{};
 };

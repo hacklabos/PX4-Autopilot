@@ -54,6 +54,7 @@ px4_add_module(
 		state_machine_helper.cpp
 		worker_thread.cpp
 	DEPENDS
+		button_subscriber
 		circuit_breaker
 		failure_detector
 		geo
