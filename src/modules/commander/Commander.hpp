@@ -78,7 +78,7 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/power_button_state.h>
 #include <uORB/topics/rtl_time_estimate.h>
-#include <uORB/topics/safety.h>
+#include <uORB/topics/button_event.h>
 #include <uORB/topics/system_power.h>
 #include <uORB/topics/telemetry_status.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
@@ -393,7 +393,7 @@ private:
 	cpuload_s		_cpuload{};
 	geofence_result_s	_geofence_result{};
 	vehicle_land_detected_s	_land_detector{};
-	safety_s		_safety{};
+	button_event_s			_safety_button{};
 	vtol_vehicle_status_s	_vtol_status{};
 
 	hrt_abstime _last_wind_warning{0};
@@ -420,7 +420,7 @@ private:
 	uORB::Subscription					_land_detector_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription					_manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription					_rtl_time_estimate_sub{ORB_ID(rtl_time_estimate)};
-	uORB::Subscription					_safety_sub{ORB_ID(safety)};
+	uORB::Subscription					_safety_button_sub{ORB_ID(safety_button)};
 	uORB::Subscription					_system_power_sub{ORB_ID(system_power)};
 	uORB::Subscription					_vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
 	uORB::Subscription					_vehicle_attitude_sub{ORB_ID(vehicle_attitude)};

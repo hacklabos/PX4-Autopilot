@@ -156,7 +156,7 @@ void reset_offboard_loss_globals(actuator_armed_s &armed, const bool old_failsaf
 				 const offboard_loss_rc_actions_t offboard_loss_rc_act);
 
 transition_result_t arming_state_transition(vehicle_status_s &status,
-		const vehicle_control_mode_s &control_mode, const safety_s &safety,
+		const vehicle_control_mode_s &control_mode, const button_event_s &safety_button,
 		const arming_state_t new_arming_state, actuator_armed_s &armed, const bool fRunPreArmChecks,
 		orb_advert_t *mavlink_log_pub, vehicle_status_flags_s &status_flags,
 		const PreFlightCheck::arm_requirements_t &arm_requirements,
@@ -230,7 +230,7 @@ transition_result_t arming_state_transition(vehicle_status_s &status,
 
 					if (fRunPreArmChecks && preflight_check_ret) {
 						// only bother running prearm if preflight was successful
-						prearm_check_ret = PreFlightCheck::preArmCheck(mavlink_log_pub, status_flags, control_mode, safety, arm_requirements,
+						prearm_check_ret = PreFlightCheck::preArmCheck(mavlink_log_pub, status_flags, control_mode, safety_button, arm_requirements,
 								   status);
 					}
 

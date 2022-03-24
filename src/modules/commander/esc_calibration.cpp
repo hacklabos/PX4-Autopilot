@@ -52,7 +52,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/actuator_test.h>
-#include <uORB/topics/safety.h>
+#include <uORB/topics/button_event.h>
 #include <parameters/param.h>
 
 using namespace time_literals;
@@ -95,10 +95,10 @@ static void set_motor_actuators(uORB::Publication<actuator_test_s> &publisher, f
 int do_esc_calibration_ctrl_alloc(orb_advert_t *mavlink_log_pub)
 {
 	// check safety
-	uORB::SubscriptionData<safety_s> safety_sub{ORB_ID(safety)};
-	safety_sub.update();
+	uORB::SubscriptionData<button_event_s> safety_button_sub{ORB_ID(safety_button)};
+	safety_button_sub.update();
 
-	if (safety_sub.get().safety_switch_available && !safety_sub.get().safety_off) {
+	if (safety_button_sub.get().switch_available && !safety_button_sub.get().triggered) {
 		calibration_log_critical(mavlink_log_pub, CAL_QGC_FAILED_MSG, "Disable safety first");
 		return PX4_ERROR;
 	}

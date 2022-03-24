@@ -61,6 +61,7 @@
 #include <lib/perf/perf_counter.h>
 #include <lib/rc/dsm.h>
 #include <lib/systemlib/mavlink_log.h>
+#include <lib/button/Button.hpp>
 
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
@@ -71,7 +72,6 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/input_rc.h>
-#include <uORB/topics/safety.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_command_ack.h>
 #include <uORB/topics/px4io_status.h>
@@ -209,10 +209,9 @@ private:
 
 	/* advertised topics */
 	uORB::PublicationMulti<input_rc_s>	_to_input_rc{ORB_ID(input_rc)};
-	uORB::PublicationMulti<safety_s>	_to_safety{ORB_ID(safety)};
 	uORB::Publication<px4io_status_s>	_px4io_status_pub{ORB_ID(px4io_status)};
 
-	safety_s _safety{};
+	Button 			_button;
 
 	bool			_lockdown_override{false};	///< override the safety lockdown
 
@@ -998,18 +997,9 @@ int PX4IO::io_handle_status(uint16_t status)
 	/**
 	 * Get and handle the safety status
 	 */
-	const bool safety_off = status & PX4IO_P_STATUS_FLAGS_SAFETY_OFF;
+	//const bool trigger_safety_off = status & PX4IO_P_STATUS_FLAGS_SAFETY_OFF;
 
-	// publish immediately on change, otherwise at 1 Hz
-	if ((hrt_elapsed_time(&_safety.timestamp) >= 1_s)
-	    || (_safety.safety_off != safety_off)) {
-
-		_safety.safety_switch_available = true;
-		_safety.safety_off = safety_off;
-		_safety.timestamp = hrt_absolute_time();
-
-		_to_safety.publish(_safety);
-	}
+	//_button.safetyOffEvent(button_event_s::BUTTON_SOURCE_PX4IO, trigger_safety_off);
 
 	return ret;
 }

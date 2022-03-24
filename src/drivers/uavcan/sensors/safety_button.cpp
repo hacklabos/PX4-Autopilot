@@ -39,9 +39,7 @@
 const char *const UavcanSafetyButtonBridge::NAME = "safety_button";
 
 UavcanSafetyButtonBridge::UavcanSafetyButtonBridge(uavcan::INode &node) :
-	UavcanSensorBridgeBase("uavcan_safety_button",
-			       ORB_ID(safety)), // TODO: either multiple publishers or `button_event` uORB topic
-	_sub_button(node)
+	UavcanSensorBridgeBase("uavcan_safety_button", ORB_ID(button_event)), _sub_button(node)
 { }
 
 int UavcanSafetyButtonBridge::init()
@@ -63,11 +61,7 @@ void UavcanSafetyButtonBridge::button_sub_cb(const
 	bool pressed = msg.press_time >= 10; // 0.1s increments
 
 	if (is_safety && pressed) {
-		safety_s safety = {};
-		safety.timestamp = hrt_absolute_time();
-		safety.safety_switch_available = true;
-		safety.safety_off = true;
-		publish(msg.getSrcNodeID().get(), &safety);
+		_button.safetyOffEvent(button_event_s::BUTTON_SOURCE_UAVCAN, true);
 	}
 }
 

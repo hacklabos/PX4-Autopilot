@@ -37,6 +37,6 @@ px4_add_module(
 	SRCS
 		SafetyButton.cpp
 	DEPENDS
-		circuit_breaker
+		button
 		px4_work_queue
 	)

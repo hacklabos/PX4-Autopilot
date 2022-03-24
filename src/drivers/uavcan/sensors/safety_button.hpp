@@ -34,7 +34,7 @@
 #pragma once
 
 #include "sensor_bridge.hpp"
-#include <uORB/topics/safety.h>
+#include "button/Button.hpp"
 
 #include <ardupilot/indication/Button.hpp>
 
@@ -61,6 +61,5 @@ private:
 		ButtonCbBinder;
 
 	uavcan::Subscriber<ardupilot::indication::Button, ButtonCbBinder> _sub_button;
-
-
+	Button _button;
 };

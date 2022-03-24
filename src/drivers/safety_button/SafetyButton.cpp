@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2019 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,6 @@
  *
  ****************************************************************************/
 
-#include <drivers/drv_tone_alarm.h>
 #include "SafetyButton.hpp"
 
 #ifndef GPIO_BTN_SAFETY
@@ -54,11 +53,6 @@ enum class LED_PATTERN : uint16_t {
 SafetyButton::SafetyButton() :
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::hp_default)
 {
-	_safety_disabled = circuit_breaker_enabled("CBRK_IO_SAFETY", CBRK_IO_SAFETY_KEY);
-
-	if (_safety_disabled) {
-		_safety_btn_off = true;
-	}
 }
 
 SafetyButton::~SafetyButton()
@@ -67,16 +61,11 @@ SafetyButton::~SafetyButton()
 }
 
 void
-SafetyButton::CheckButton()
+SafetyButton::CheckSafetyRequest(bool button_pressed)
 {
-	const bool safety_button_pressed = px4_arch_gpioread(GPIO_BTN_SAFETY);
-
-	/* Keep safety button pressed for one second to turn off safety
-	 *
-	 * Note that safety cannot be turned on again by button because a button
-	 * hardware problem could accidentally disable it in flight.
-	 */
-	if (safety_button_pressed && !_safety_btn_off) {
+	bool trigger_safety_off = false;
+	/* Keep button pressed for one second to turn off safety */
+	if (button_pressed) {
 
 		if (_button_counter <= CYCLE_COUNT) {
 			_button_counter++;
@@ -84,16 +73,14 @@ SafetyButton::CheckButton()
 
 		if (_button_counter == CYCLE_COUNT) {
 			// switch safety off -> ready to arm state
-			_safety_btn_off = true;
+			trigger_safety_off = true;
 		}
 
 	} else {
 		_button_counter = 0;
 	}
 
-	CheckPairingRequest(safety_button_pressed);
-
-	_safety_btn_prev_sate = safety_button_pressed;
+	_button.safetyOffEvent(button_event_s::BUTTON_SOURCE_GPIO, trigger_safety_off);
 }
 
 void
@@ -108,7 +95,7 @@ SafetyButton::CheckPairingRequest(bool button_pressed)
 		_pairing_button_counter = 0;
 	}
 
-	if (!_safety_btn_prev_sate && button_pressed) {
+	if (!_button_prev_sate && button_pressed) {
 		if (_pairing_start == 0) {
 			_pairing_start = now;
 		}
@@ -117,32 +104,13 @@ SafetyButton::CheckPairingRequest(bool button_pressed)
 	}
 
 	if (_pairing_button_counter == 3) {
-		vehicle_command_s vcmd{};
-		vcmd.command = vehicle_command_s::VEHICLE_CMD_START_RX_PAIR;
-		vcmd.param1 = 10.f; // GCS pairing request handled by a companion.
-		vcmd.timestamp = hrt_absolute_time();
-		_to_command.publish(vcmd);
-		PX4_DEBUG("Sending GCS pairing request");
-
-		led_control_s led_control{};
-		led_control.led_mask = 0xff;
-		led_control.mode = led_control_s::MODE_BLINK_FAST;
-		led_control.color = led_control_s::COLOR_GREEN;
-		led_control.num_blinks = 1;
-		led_control.priority = 0;
-		led_control.timestamp = hrt_absolute_time();
-		_to_led_control.publish(led_control);
-
-		tune_control_s tune_control{};
-		tune_control.tune_id = tune_control_s::TUNE_ID_NOTIFY_POSITIVE;
-		tune_control.volume = tune_control_s::VOLUME_LEVEL_DEFAULT;
-		tune_control.timestamp = hrt_absolute_time();
-		_to_tune_control.publish(tune_control);
-
+		_button.pairingEvent(button_event_s::BUTTON_SOURCE_GPIO);
 		// reset state
 		_pairing_start = 0;
 		_pairing_button_counter = 0;
 	}
+
+	_button_prev_sate = button_pressed;
 }
 
 void
@@ -156,7 +124,7 @@ SafetyButton::FlashButton()
 		LED_PATTERN pattern = LED_PATTERN::FMU_REFUSE_TO_ARM;
 
 		// cycle the blink state machine
-		if (_safety_btn_off) {
+		if (_button_prev_sate) {
 			if (armed.armed) {
 				pattern = LED_PATTERN::IO_FMU_ARMED;
 
@@ -190,25 +158,9 @@ SafetyButton::Run()
 		return;
 	}
 
-	CheckButton();
-
-	// control safety switch LED & publish safety topic
-	if (!PX4_MFT_HW_SUPPORTED(PX4_MFT_PX4IO)) {
-		FlashButton();
-
-		const bool safety_off = _safety_btn_off || _safety_disabled;
-
-		// publish immediately on change, otherwise at 1 Hz
-		if ((hrt_elapsed_time(&_safety.timestamp) >= 1_s)
-		    || (_safety.safety_off != safety_off)) {
-
-			_safety.safety_switch_available = true;
-			_safety.safety_off = safety_off;
-			_safety.timestamp = hrt_absolute_time();
-
-			_to_safety.publish(_safety);
-		}
-	}
+	const bool button_pressed = px4_arch_gpioread(GPIO_BTN_SAFETY);
+	CheckSafetyRequest(button_pressed);
+	CheckPairingRequest(button_pressed);
 }
 
 int
@@ -251,9 +203,7 @@ SafetyButton::custom_command(int argc, char *argv[])
 int
 SafetyButton::print_status()
 {
-	PX4_INFO("Safety Disabled: %s", _safety_disabled ? "yes" : "no");
-	PX4_INFO("Safety State (from button): %s", _safety_btn_off ? "off" : "on");
-
+	_button.printStatus();
 	return 0;
 }
 

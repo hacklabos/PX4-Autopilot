@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2022 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,51 +31,59 @@
  *
  ****************************************************************************/
 
+/**
+ * @file button.h
+ *
+ * Library for button functionality.
+ *
+ */
+
 #pragma once
 
-#include <float.h>
-
+#include <circuit_breaker/circuit_breaker.h>
+#include <drivers/drv_tone_alarm.h>
 #include <drivers/drv_hrt.h>
-#include <px4_platform_common/module.h>
-#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
-#include <button/Button.hpp>
+#include <uORB/Publication.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/actuator_armed.h>
+#include <uORB/topics/button_event.h>
+#include <uORB/topics/vehicle_command.h>
+#include <uORB/topics/led_control.h>
+#include <uORB/topics/tune_control.h>
 
-class SafetyButton : public ModuleBase<SafetyButton>, public px4::ScheduledWorkItem, public Button
+class Button
 {
 public:
-	SafetyButton();
-	~SafetyButton() override;
+	Button();
+	virtual ~Button() = default;
 
-	/** @see ModuleBase */
-	static int task_spawn(int argc, char *argv[]);
+	/**
+	 * Function for publishing safety off event
+	 *
+	 * @param source button source type
+	 * @param triggered flag indicating event is triggered
+	 */
+	virtual void safetyOffEvent(uint8_t source, bool triggered);
 
-	/** @see ModuleBase */
-	static int custom_command(int argc, char *argv[]);
+	/**
+	 * Function for triggering pairing event
+	 *
+	 * @param source button source type
+	 */
+	virtual void pairingEvent(uint8_t source);
 
-	/** @see ModuleBase */
-	static int print_usage(const char *reason = nullptr);
 
-	/** @see ModuleBase::print_status() */
-	int print_status() override;
+	virtual void printStatus();
 
-	int Start();
 
 private:
-	void Run() override;
 
-	void CheckSafetyRequest(bool button_pressed);
-	void CheckPairingRequest(bool button_pressed);
-	void FlashButton();
+	bool				_safety_disabled{false};	///< circuit breaker to disable the safety button
 
-	Button 			_button;
-	uint8_t			_button_counter{0};
-	uint8_t			_blink_counter{0};
-	bool			_button_prev_sate{false};	///< Previous state of the HW button
+	uORB::Publication<button_event_s>		_to_safety_button{ORB_ID(safety_button)};
+	uORB::Publication<vehicle_command_s>	_to_command{ORB_ID(vehicle_command)};
+	uORB::Publication<led_control_s> 		_to_led_control{ORB_ID(led_control)};
+	uORB::Publication<tune_control_s> 		_to_tune_control{ORB_ID(tune_control)};
 
-	// Pairing request
-	hrt_abstime		_pairing_start{0};
-	int				_pairing_button_counter{0};
-
-	uORB::Subscription	_armed_sub{ORB_ID(actuator_armed)};
-
+	button_event_s _safety_button{};
 };
