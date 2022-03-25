@@ -40,7 +40,8 @@
 
 bool PreFlightCheck::preArmCheck(orb_advert_t *mavlink_log_pub, const vehicle_status_flags_s &status_flags,
 				 const vehicle_control_mode_s &control_mode,
-				 const ButtonSubscriber::safety_s &safety, const arm_requirements_t &arm_requirements, vehicle_status_s &status, bool report_fail)
+				 const ButtonSubscriber::safety_s &safety, const arm_requirements_t &arm_requirements, vehicle_status_s &status,
+				 bool report_fail)
 {
 	bool prearm_ok = true;
 

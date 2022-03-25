@@ -283,7 +283,8 @@ int Commander::custom_command(int argc, char *argv[])
 					   true, true, 30_s);
 		PX4_INFO("Preflight check: %s", preflight_check_res ? "OK" : "FAILED");
 
-		bool prearm_check_res = PreFlightCheck::preArmCheck(nullptr, vehicle_status_flags, vehicle_control_mode, ButtonSubscriber::safety_s{},
+		bool prearm_check_res = PreFlightCheck::preArmCheck(nullptr, vehicle_status_flags, vehicle_control_mode,
+					ButtonSubscriber::safety_s{},
 					PreFlightCheck::arm_requirements_t{}, vehicle_status);
 		PX4_INFO("Prearm check: %s", prearm_check_res ? "OK" : "FAILED");
 
@@ -2203,7 +2204,7 @@ Commander::run()
 
 			// disarm if safety is now on and still armed
 			if (_armed.armed && _safety.safety_switch_available && !_safety.safety_off
-				&& (_status.hil_state == vehicle_status_s::HIL_STATE_OFF)) {
+			    && (_status.hil_state == vehicle_status_s::HIL_STATE_OFF)) {
 				disarm(arm_disarm_reason_t::safety_button);
 			}
 

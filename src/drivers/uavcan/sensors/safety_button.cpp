@@ -70,7 +70,7 @@ void UavcanSafetyButtonBridge::button_sub_cb(const
 	// Detect pairing button trigger event
 	if (is_safety) {
 
-		if(hrt_elapsed_time(&_start_timestamp) > 2_s) {
+		if (hrt_elapsed_time(&_start_timestamp) > 2_s) {
 			_start_timestamp = hrt_absolute_time();
 			_pairing_button_counter = 0u;
 		}

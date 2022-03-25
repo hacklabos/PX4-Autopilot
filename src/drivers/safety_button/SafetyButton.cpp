@@ -64,6 +64,7 @@ void
 SafetyButton::CheckSafetyRequest(bool button_pressed)
 {
 	bool trigger_safety_off = false;
+
 	/* Keep button pressed for one second to turn off safety */
 	if (button_pressed) {
 

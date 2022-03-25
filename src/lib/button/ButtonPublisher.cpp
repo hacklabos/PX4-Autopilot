@@ -59,7 +59,7 @@ void ButtonPublisher::safetyButtonTriggerEvent(uint8_t source, bool triggered)
 	 * hardware problem could accidentally disable it in flight.
 	 */
 
-	if(!_safety_button_triggered) {
+	if (!_safety_button_triggered) {
 		_safety_button_triggered = triggered || _safety_disabled;
 	}
 
