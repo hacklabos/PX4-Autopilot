@@ -75,7 +75,7 @@ void ButtonPublisher::safetyButtonTriggerEvent(uint8_t source, bool triggered)
 	}
 }
 
-void ButtonPublisher::pairingEvent()
+void ButtonPublisher::pairingButtonTriggerEvent()
 {
 	vehicle_command_s vcmd{};
 	vcmd.command = vehicle_command_s::VEHICLE_CMD_START_RX_PAIR;

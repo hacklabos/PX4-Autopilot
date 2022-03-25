@@ -67,9 +67,9 @@ public:
 	virtual void safetyButtonTriggerEvent(uint8_t source, bool triggered);
 
 	/**
-	 * Function for triggering pairing event
+	 * Function for publishing pairing button trigger event
 	 */
-	virtual void pairingEvent();
+	virtual void pairingButtonTriggerEvent();
 
 
 	virtual void printStatus();

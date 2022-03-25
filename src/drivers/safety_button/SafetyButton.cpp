@@ -104,7 +104,7 @@ SafetyButton::CheckPairingRequest(bool button_pressed)
 	}
 
 	if (_pairing_button_counter == ButtonPublisher::PAIR_BUTTON_COUNT) {
-		_button_publisher.pairingEvent();
+		_button_publisher.pairingButtonTriggerEvent();
 		// reset state
 		_pairing_start = 0;
 		_pairing_button_counter = 0;
