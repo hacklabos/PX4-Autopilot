@@ -2194,7 +2194,7 @@ Commander::run()
 		const bool previous_safety_off = _safety.safety_off;
 
 		/* update safety topic */
-		const bool safety_updated = _button_subscriber.safetyButtonUpdated(_safety);;
+		const bool safety_updated = _button_subscriber.safetyButtonUpdated(_safety);
 
 		if (safety_updated) {
 
