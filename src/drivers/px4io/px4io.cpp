@@ -164,6 +164,7 @@ private:
 	void updateDisarmed();
 	void updateFailsafe();
 	void updateTimerRateGroups();
+	void reboot();
 
 	static int checkcrc(int argc, char *argv[]);
 	static int bind(int argc, char *argv[]);
@@ -446,7 +447,7 @@ int PX4IO::init()
 		// firmware
 
 		// Now the reboot into bootloader mode should succeed.
-		io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_REBOOT_BL, PX4IO_REBOOT_BL_MAGIC);
+		reboot();
 		return -1;
 	}
 
@@ -1686,19 +1687,7 @@ int PX4IO::ioctl(file *filep, int cmd, unsigned long arg)
 
 		}
 
-		/* For Legacy PX4IO Firmware only:
-		 * If IO has already safety off it won't accept going into bootloader mode,
-		 * therefore we need to set safety on first. */
-		io_reg_set(PX4IO_PAGE_SETUP, 14, 22027);
-
-		/* reboot into bootloader - arg must be PX4IO_REBOOT_BL_MAGIC */
-		usleep(1);
-		ret = io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_REBOOT_BL, arg);
-
-		if (ret != PX4_OK) {
-			PX4_WARN("IO refused to reboot");
-		}
-
+		reboot();
 		break;
 
 	case PX4IO_CHECK_CRC: {
@@ -1772,6 +1761,22 @@ static device::Device *get_interface()
 	}
 
 	return interface;
+}
+
+void PX4IO::reboot()
+{
+	/* For Legacy PX4IO Firmware only:
+	 * If IO has already safety off it won't accept going into bootloader mode,
+	 * therefore we need to set safety on first. */
+	io_reg_set(PX4IO_PAGE_SETUP, 14, 22027);
+
+	usleep(1);
+	int ret = io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_REBOOT_BL, PX4IO_REBOOT_BL_MAGIC);
+
+	if (ret != PX4_OK) {
+		PX4_WARN("IO refused to reboot");
+	}
+
 }
 
 int PX4IO::checkcrc(int argc, char *argv[])
