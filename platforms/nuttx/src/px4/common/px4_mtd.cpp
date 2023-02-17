@@ -249,25 +249,19 @@ static const px4_mtd_manifest_t default_mtd_config = {
 
 #else
 
-const px4_mft_device_t spifram  = {             // FM25V02A on FMUM 32K 512 X 64
+const px4_mft_device_t spifram  = {             // FM25V02A on FMUM 32K 1 X 32768
 	.bus_type = px4_mft_device_t::SPI,
 	.devid    = SPIDEV_FLASH(0)
 };
 
 const px4_mtd_entry_t fram = {
 	.device = &spifram,
-	.npart = 2,
+	.npart = 1,
 	.partd = {
 		{
 			.type = MTD_PARAMETERS,
 			.path = "/fs/mtd_params",
-			.nblocks = 32
-		},
-		{
-			.type = MTD_WAYPOINTS,
-			.path = "/fs/mtd_waypoints",
-			.nblocks = 32
-
+			.nblocks = 32768
 		}
 	},
 };
