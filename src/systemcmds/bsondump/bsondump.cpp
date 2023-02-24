@@ -53,33 +53,7 @@ static void print_usage(const char *reason = nullptr)
 
 static int bson_print_callback(bson_decoder_t decoder, bson_node_t node)
 {
-	switch (node->type) {
-	case BSON_EOO:
-		PX4_INFO_RAW("BSON_EOO\n");
-		return 0;
-
-	case BSON_DOUBLE:
-		PX4_INFO_RAW("BSON_DOUBLE: %s = %.6f\n", node->name, node->d);
-		return 1;
-
-	case BSON_BOOL:
-		PX4_INFO_RAW("BSON_BOOL:   %s = %d\n", node->name, node->b);
-		return 1;
-
-	case BSON_INT32:
-		PX4_INFO_RAW("BSON_INT32:  %s = %" PRIi32 "\n", node->name, node->i32);
-		return 1;
-
-	case BSON_INT64:
-		PX4_INFO_RAW("BSON_INT64:  %s = %" PRIi64 "\n", node->name, node->i64);
-		return 1;
-
-	default:
-		PX4_INFO_RAW("ERROR %s unhandled bson type %d\n", node->name, node->type);
-		return 1; // just skip this entry
-	}
-
-	return -1;
+	return 1;
 }
 
 extern "C" __EXPORT int bsondump_main(int argc, char *argv[])
@@ -115,11 +89,7 @@ extern "C" __EXPORT int bsondump_main(int argc, char *argv[])
 					close(fd);
 
 					if (result == 0) {
-						PX4_INFO_RAW("BSON decoded %" PRId32 " bytes (double:%" PRIu16 ", string:%" PRIu16 ", bin:%" PRIu16 ", bool:%" PRIu16
-							     ", int32:%" PRIu16 ", int64:%" PRIu16 ")\n",
-							     decoder.total_decoded_size,
-							     decoder.count_node_double, decoder.count_node_string, decoder.count_node_bindata, decoder.count_node_bool,
-							     decoder.count_node_int32, decoder.count_node_int64);
+
 
 						return 0;
 

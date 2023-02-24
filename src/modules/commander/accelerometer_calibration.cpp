@@ -418,6 +418,7 @@ int do_accel_calibration(orb_advert_t *mavlink_log_pub)
 				calibrations[i].PrintStatus();
 
 
+				/*
 				if (calibrations[i].ParametersSave(i, true)) {
 					param_save = true;
 					failed = false;
@@ -427,6 +428,7 @@ int do_accel_calibration(orb_advert_t *mavlink_log_pub)
 					calibration_log_critical(mavlink_log_pub, "calibration save failed");
 					break;
 				}
+				*/
 			}
 		}
 
@@ -564,6 +566,7 @@ int do_accel_calibration_quick(orb_advert_t *mavlink_log_pub)
 			} else {
 				calibration.set_offset(offset);
 
+				/*
 				if (calibration.ParametersSave(accel_index)) {
 					calibration.PrintStatus();
 					param_save = true;
@@ -574,6 +577,7 @@ int do_accel_calibration_quick(orb_advert_t *mavlink_log_pub)
 					calibration_log_critical(mavlink_log_pub, CAL_QGC_FAILED_MSG, "calibration save failed");
 					break;
 				}
+				*/
 			}
 		}
 	}

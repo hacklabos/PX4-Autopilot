@@ -229,7 +229,7 @@ void VehicleMagnetometer::UpdateMagBiasEstimate()
 
 						if (_calibration[mag_index].set_offset(offset)) {
 							// save parameters with preferred calibration slot to current sensor index
-							_calibration[mag_index].ParametersSave(mag_index);
+							//_calibration[mag_index].ParametersSave(mag_index);
 
 							PX4_INFO("mag %d (%" PRIu32 ") setting offsets [%.3f, %.3f, %.3f]->[%.3f, %.3f, %.3f]",
 								 mag_index, _calibration[mag_index].device_id(),
@@ -335,7 +335,7 @@ void VehicleMagnetometer::UpdateMagCalibration()
 							 (double)mag_cal_offset(0), (double)mag_cal_offset(1), (double)mag_cal_offset(2),
 							 (double)_mag_cal[i].offset(0), (double)_mag_cal[i].offset(1), (double)_mag_cal[i].offset(2));
 
-						_calibration[mag_index].ParametersSave();
+						//_calibration[mag_index].ParametersSave();
 
 						_calibration_estimator_bias[mag_index].zero();
 

@@ -843,9 +843,9 @@ void VehicleIMU::SensorCalibrationSaveAccel()
 					 (double)offset_estimate(0), (double)offset_estimate(1), (double)offset_estimate(2));
 
 				// save parameters with preferred calibration slot to current sensor index
-				if (_accel_calibration.ParametersSave(_sensor_accel_sub.get_instance())) {
-					param_notify_changes();
-				}
+				//if (_accel_calibration.ParametersSave(_sensor_accel_sub.get_instance())) {
+				//	param_notify_changes();
+				//}
 
 				_in_flight_calibration_check_timestamp_last = hrt_absolute_time() + INFLIGHT_CALIBRATION_QUIET_PERIOD_US;
 			}
@@ -895,9 +895,9 @@ void VehicleIMU::SensorCalibrationSaveGyro()
 					 (double)offset_estimate(0), (double)offset_estimate(1), (double)offset_estimate(2));
 
 				// save parameters with preferred calibration slot to current sensor index
-				if (_gyro_calibration.ParametersSave(_sensor_gyro_sub.get_instance())) {
-					param_notify_changes();
-				}
+				//if (_gyro_calibration.ParametersSave(_sensor_gyro_sub.get_instance())) {
+				//	param_notify_changes();
+				//}
 
 				_in_flight_calibration_check_timestamp_last = hrt_absolute_time() + INFLIGHT_CALIBRATION_QUIET_PERIOD_US;
 			}

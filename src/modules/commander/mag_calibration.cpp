@@ -917,6 +917,7 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 
 				current_cal.PrintStatus();
 
+				/*
 				if (current_cal.ParametersSave(cur_mag, true)) {
 					param_save = true;
 					failed = false;
@@ -926,6 +927,7 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 					calibration_log_critical(mavlink_log_pub, "calibration save failed");
 					break;
 				}
+				*/
 			}
 		}
 

@@ -115,15 +115,6 @@ else
 		set PARAM_FILE /fs/mtd_params
 	fi
 
-	#
-	# Load parameters.
-	#
-	# if the board has a storage for (factory) calibration data
-	if mft query -q -k MTD -s MTD_CALDATA -v /fs/mtd_caldata
-	then
-		param load /fs/mtd_caldata
-	fi
-
 	param select $PARAM_FILE
 	if ! param import
 	then

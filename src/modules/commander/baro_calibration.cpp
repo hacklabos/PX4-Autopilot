@@ -208,10 +208,12 @@ int do_baro_calibration(orb_advert_t *mavlink_log_pub)
 
 				calibration[instance].set_offset(offset);
 
+				/*
 				if (calibration[instance].ParametersSave(instance, true)) {
 					calibration[instance].PrintStatus();
 					param_save = true;
 				}
+				*/
 			}
 		}
 	}

@@ -263,6 +263,7 @@ void GyroCalibration::Run()
 		if (calibration_updated) {
 			bool param_save = false;
 
+			/*
 			for (int gyro = 0; gyro < _sensor_gyro_subs.size(); gyro++) {
 				if (_gyro_calibration[gyro].device_id() != 0) {
 					if (_gyro_calibration[gyro].ParametersSave(gyro)) {
@@ -270,6 +271,7 @@ void GyroCalibration::Run()
 					}
 				}
 			}
+			*/
 
 			if (param_save) {
 				param_notify_changes();

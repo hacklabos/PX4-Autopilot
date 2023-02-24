@@ -259,6 +259,7 @@ int do_gyro_calibration(orb_advert_t *mavlink_log_pub)
 				calibration.set_offset(worker_data.offset[uorb_index]);
 				calibration.PrintStatus();
 
+				/*
 				if (calibration.ParametersSave(uorb_index, true)) {
 					param_save = true;
 					failed = false;
@@ -268,6 +269,7 @@ int do_gyro_calibration(orb_advert_t *mavlink_log_pub)
 					calibration_log_critical(mavlink_log_pub, "calibration save failed");
 					break;
 				}
+				*/
 			}
 		}
 
