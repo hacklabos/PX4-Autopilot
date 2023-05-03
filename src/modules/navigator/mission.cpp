@@ -70,27 +70,50 @@ Mission::Mission(Navigator *navigator) :
 	mission_init();
 }
 
+void
+Mission::run()
+{
+	if ((_mission.count > 0) && (_current_mission_index != _load_mission_index)) {
+
+		uint32_t start_index = _current_mission_index + 1;
+		uint32_t end_index = start_index + DATAMAN_CACHE_SIZE;
+
+		end_index = math::min(end_index, static_cast<uint32_t>(_mission.count));
+
+		for (uint32_t index = start_index; index < end_index; ++index) {
+
+			_dataman_cache.load(static_cast<dm_item_t>(_mission.dataman_id), index);
+		}
+
+		_load_mission_index = _current_mission_index;
+	}
+
+	_dataman_cache.update();
+}
+
 void Mission::mission_init()
 {
 	// init mission state, do it here to allow navigator to use stored mission even if mavlink failed to start
-	mission_s mission{};
 
-	if (_dataman_client.readSync(DM_KEY_MISSION_STATE, 0, reinterpret_cast<uint8_t *>(&mission), sizeof(mission_s))) {
-		if ((mission.timestamp != 0)
-		    && (mission.dataman_id == DM_KEY_WAYPOINTS_OFFBOARD_0 || mission.dataman_id == DM_KEY_WAYPOINTS_OFFBOARD_1)) {
-			if (mission.count > 0) {
-				PX4_INFO("Mission #%" PRIu8 " loaded, %" PRIu16 " WPs", mission.dataman_id, mission.count);
+	if (_dataman_client.readSync(DM_KEY_MISSION_STATE, 0, reinterpret_cast<uint8_t *>(&_mission), sizeof(mission_s))) {
+		if ((_mission.timestamp != 0)
+		    && (_mission.dataman_id == DM_KEY_WAYPOINTS_OFFBOARD_0 || _mission.dataman_id == DM_KEY_WAYPOINTS_OFFBOARD_1)) {
+			if (_mission.count > 0) {
+				PX4_INFO("Mission #%" PRIu8 " loaded, %" PRIu16 " WPs", _mission.dataman_id, _mission.count);
 			}
 
 		} else {
 			PX4_ERR("reading mission state failed");
 
 			// initialize mission state in dataman
-			mission.dataman_id = DM_KEY_WAYPOINTS_OFFBOARD_0;
-			mission.timestamp = hrt_absolute_time();
-			_dataman_client.writeSync(DM_KEY_MISSION_STATE, 0, reinterpret_cast<uint8_t *>(&mission), sizeof(mission_s));
+			_mission.dataman_id = DM_KEY_WAYPOINTS_OFFBOARD_0;
+			_mission.timestamp = hrt_absolute_time();
+			_dataman_client.writeSync(DM_KEY_MISSION_STATE, 0, reinterpret_cast<uint8_t *>(&_mission), sizeof(mission_s));
 		}
 	}
+
+	_current_mission_index = _mission.current_seq;
+
 }
 
 void
@@ -415,8 +438,8 @@ Mission::find_mission_land_start()
 	for (size_t i = 1; i < _mission.count; i++) {
 		missionitem_prev = missionitem; // store the last mission item before reading a new one
 
-		bool success = _dataman_client.readSync(dm_current, i, reinterpret_cast<uint8_t *>(&missionitem),
-							sizeof(mission_item_s));
+		bool success = _dataman_cache.loadWait(dm_current, i, reinterpret_cast<uint8_t *>(&missionitem),
+						       sizeof(mission_item_s), 100_ms);
 
 		if (!success) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
@@ -515,6 +538,9 @@ Mission::update_mission()
 
 	bool failed = true;
 
+	_dataman_cache.invalidate();
+	_load_mission_index = -1;
+
 	/* Reset vehicle_roi
 	 * Missions that do not explicitly configure ROI would not override
 	 * an existing ROI setting from previous missions */
@@ -612,8 +638,8 @@ Mission::advance_mission()
 				for (int32_t i = _current_mission_index - 1; i >= 0; i--) {
 					struct mission_item_s missionitem = {};
 
-					bool success = _dataman_client.readSync(dm_current, i, reinterpret_cast<uint8_t *>(&missionitem),
-										sizeof(mission_item_s));
+					bool success = _dataman_cache.loadWait(dm_current, i, reinterpret_cast<uint8_t *>(&missionitem),
+									       sizeof(mission_item_s), 100_ms);
 
 					if (!success) {
 						/* not supposed to happen unless the datamanager can't access the SD card, etc. */
@@ -1587,8 +1613,8 @@ Mission::read_mission_item(int offset, struct mission_item_s *mission_item)
 		struct mission_item_s mission_item_tmp;
 
 		/* read mission item from datamanager */
-		bool success = _dataman_client.readSync(dm_item, *mission_index_ptr, reinterpret_cast<uint8_t *>(&mission_item_tmp),
-							sizeof(mission_item_s));
+		bool success = _dataman_cache.loadWait(dm_item, *mission_index_ptr, reinterpret_cast<uint8_t *>(&mission_item_tmp),
+						       sizeof(mission_item_s), 100_ms);
 
 		if (!success) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
@@ -1756,7 +1782,7 @@ Mission::check_mission_valid(bool force)
 {
 	if ((!_home_inited && _navigator->home_global_position_valid()) || force) {
 
-		MissionFeasibilityChecker _missionFeasibilityChecker(_navigator);
+		MissionFeasibilityChecker _missionFeasibilityChecker(_navigator, _dataman_client);
 
 		_navigator->get_mission_result()->valid =
 			_missionFeasibilityChecker.checkMissionFeasible(_mission);
@@ -1789,7 +1815,8 @@ Mission::reset_mission(struct mission_s &mission)
 					struct mission_item_s item;
 					const ssize_t len = sizeof(struct mission_item_s);
 
-					bool success = _dataman_client.readSync(dm_current, index, reinterpret_cast<uint8_t *>(&item), sizeof(mission_item_s));
+					bool success = _dataman_cache.loadWait(dm_current, index, reinterpret_cast<uint8_t *>(&item), sizeof(mission_item_s),
+									       100_ms);
 
 					if (!success) {
 						PX4_WARN("could not read mission item during reset");
@@ -1849,8 +1876,8 @@ Mission::index_closest_mission_item()
 	for (size_t i = 0; i < _mission.count; i++) {
 		struct mission_item_s missionitem = {};
 
-		bool success = _dataman_client.readSync(dm_current, i, reinterpret_cast<uint8_t *>(&missionitem),
-							sizeof(mission_item_s));
+		bool success = _dataman_cache.loadWait(dm_current, i, reinterpret_cast<uint8_t *>(&missionitem),
+						       sizeof(mission_item_s), 100_ms);
 
 		if (!success) {
 			/* not supposed to happen unless the datamanager can't access the SD card, etc. */
