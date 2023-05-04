@@ -564,6 +564,168 @@ bool DatamanClient::lastOperationCompleted(bool &success)
 	return completed;
 }
 
-DatamanCache::DatamanCache(int num_items)
+DatamanCache::DatamanCache(uint32_t num_items)
 {
+	_items = new Item[num_items] {};
+
+	if (_items != nullptr) {
+		_num_items = num_items;
+
+	} else {
+		PX4_ERR("alloc failed");
+	}
+}
+
+DatamanCache::~DatamanCache()
+{
+	delete[] _items;
+}
+
+void DatamanCache::resize(uint32_t num_items)
+{
+	Item *new_items = new Item[num_items] {};
+
+	if (new_items != nullptr) {
+		uint32_t num_min = num_items < _num_items ? num_items : _num_items;
+
+		for (uint32_t i = 0; i < num_min; ++i) {
+			new_items[i] = _items[i];
+		}
+
+		delete[] _items;
+		_items = new_items;
+		_num_items = num_items;
+
+	} else {
+		PX4_ERR("alloc failed");
+	}
+}
+
+bool DatamanCache::load(dm_item_t item, uint32_t index)
+{
+	bool success = false;
+
+	if (_item_counter < _num_items) {
+
+		_items[_load_index].cache_state = State::RequestPrepared;
+		_items[_load_index].response.item = item;
+		_items[_load_index].response.index = index;
+
+		++_load_index;
+
+		if (_load_index >= _num_items) {
+			_load_index = 0;
+		}
+
+		++_item_counter;
+
+		success = true;
+	}
+
+	return success;
+}
+
+bool DatamanCache::loadWait(dm_item_t item, uint32_t index, uint8_t *buffer, uint32_t length, hrt_abstime timeout)
+{
+	if (length > g_per_item_size[item]) {
+		PX4_ERR("Length  %" PRIu32 " can't fit in data size for item  %" PRIi8, length, static_cast<uint8_t>(item));
+		return false;
+	}
+
+	bool success = false;
+
+	for (uint32_t i = 0; i < _num_items; ++i) {
+		if ((_items[i].response.item == item) &&
+		    (_items[i].response.index == index) &&
+		    (_items[i].cache_state == State::ResponseReceived)) {
+			memcpy(buffer, _items[i].response.data, length);
+			success = true;
+			break;
+		}
+	}
+
+	if (!success && (timeout > 0)) {
+		success = _client.readSync(item, index, buffer, length, timeout);
+	}
+
+	return success;
+}
+
+void DatamanCache::update()
+{
+	if (_item_counter > 0) {
+
+		_client.update();
+
+		bool success = false;
+		bool response_success = false;
+
+		switch (_items[_update_index].cache_state) {
+
+		case State::RequestPrepared:
+
+			success = _client.readAsync(static_cast<dm_item_t>(_items[_update_index].response.item),
+						    _items[_update_index].response.index,
+						    _items[_update_index].response.data, g_per_item_size[_items[_update_index].response.item]);
+
+			if (success) {
+				_items[_update_index].cache_state = State::RequestSent;
+
+			} else {
+				_items[_update_index].cache_state = State::Error;
+			}
+
+			break;
+
+		case State::RequestSent:
+
+			if (_client.lastOperationCompleted(response_success)) {
+
+				if (response_success) {
+
+					_items[_update_index].cache_state = State::ResponseReceived;
+					changeUpdateIndex();
+
+				} else {
+					_items[_update_index].cache_state = State::Error;
+				}
+			}
+
+			break;
+
+		case State::Error:
+			PX4_ERR("Caching: item %" PRIu8 ", index %" PRIu32", status %" PRIu8,
+				_items[_update_index].response.item, _items[_update_index].response.index, _items[_update_index].response.status);
+
+			changeUpdateIndex();
+			break;
+
+		default:
+			break;
+		}
+
+	}
+}
+
+void DatamanCache::invalidate()
+{
+	for (uint32_t i = 0; i < _num_items; ++i) {
+		_items[i].cache_state = State::Idle;
+	}
+
+	_update_index = 0;
+	_item_counter = 0;
+}
+
+inline void DatamanCache::changeUpdateIndex()
+{
+	++_update_index;
+
+	if (_update_index >= _num_items) {
+		_update_index = 0;
+	}
+
+	if (_item_counter > 0) {
+		--_item_counter;
+	}
 }
