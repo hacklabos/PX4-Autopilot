@@ -96,6 +96,11 @@ public:
 		RTL_STATE_HEAD_TO_CENTER,
 	};
 
+	/**
+	 * @brief function to call regularly to do background work
+	 */
+	void run();
+
 	void on_inactivation() override;
 	void on_inactive() override;
 	void on_activation() override;
@@ -157,7 +162,11 @@ private:
 		}
 	};
 
-	DatamanClient _dataman_client{};
+	uint16_t _update_counter{0}; ///< dataman update counter: if it does not match, safe points data was updated
+	bool _safe_points_updated{false}; ///< flag indicating if safe points are updated to dataman cache
+	uint16_t _num_safe_points{4};
+	DatamanCache _dataman_cache{_num_safe_points};
+	DatamanClient	&_dataman_client = _dataman_cache.client();
 
 	RTLPosition _destination{}; ///< the RTL position to fly to (typically the home position or a safe point)
 

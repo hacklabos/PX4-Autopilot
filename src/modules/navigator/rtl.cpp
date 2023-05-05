@@ -67,6 +67,14 @@ RTL::RTL(Navigator *navigator) :
 	_param_rover_cruise_speed = param_find("GND_SPEED_THR_SC");
 }
 
+void RTL::run()
+{
+	if (!_safe_points_updated) {
+		_dataman_cache.update();
+		_safe_points_updated = !_dataman_cache.isLoading();
+	}
+}
+
 void RTL::on_inactivation()
 {
 	if (_navigator->get_precland()->is_activated()) {
@@ -183,35 +191,55 @@ void RTL::find_RTL_destination()
 	mission_stats_entry_s stats;
 	bool success = _dataman_client.readSync(DM_KEY_SAFE_POINTS, 0, reinterpret_cast<uint8_t *>(&stats),
 						sizeof(mission_stats_entry_s));
-	int num_safe_points = 0;
+	uint16_t num_safe_points = 0;
 
 	if (success) {
 		num_safe_points = stats.num_items;
 	}
 
+	if (_update_counter != stats.update_counter) {
+
+		_safe_points_updated = false;
+		_update_counter = stats.update_counter;
+
+		_dataman_cache.invalidate();
+
+		if (_num_safe_points != num_safe_points) {
+			_num_safe_points = num_safe_points;
+			_dataman_cache.resize(_num_safe_points);
+		}
+
+		for (uint32_t index = 1; index <= _num_safe_points; ++index) {
+			_dataman_cache.load(DM_KEY_SAFE_POINTS, index);
+		}
+	}
+
 	// check if a safe point is closer than home or landing
 	int closest_index = 0;
 
-	for (int current_seq = 1; current_seq <= num_safe_points; ++current_seq) {
-		mission_safe_point_s mission_safe_point;
+	if (_safe_points_updated) {
 
-		success = _dataman_client.readSync(DM_KEY_SAFE_POINTS, current_seq, reinterpret_cast<uint8_t *>(&mission_safe_point),
-						   sizeof(mission_safe_point_s));
+		for (int current_seq = 1; current_seq <= num_safe_points; ++current_seq) {
+			mission_safe_point_s mission_safe_point;
 
-		if (!success) {
-			PX4_ERR("dm_read failed");
-			continue;
-		}
+			success = _dataman_cache.loadWait(DM_KEY_SAFE_POINTS, current_seq, reinterpret_cast<uint8_t *>(&mission_safe_point),
+							  sizeof(mission_safe_point_s));
 
-		// TODO: take altitude into account for distance measurement
-		dlat = mission_safe_point.lat - global_position.lat;
-		dlon = mission_safe_point.lon - global_position.lon;
-		double dist_squared = coord_dist_sq(dlat, dlon);
+			if (!success) {
+				PX4_ERR("dm_read failed");
+				continue;
+			}
 
-		if (dist_squared < min_dist_squared) {
-			closest_index = current_seq;
-			min_dist_squared = dist_squared;
-			closest_safe_point = mission_safe_point;
+			// TODO: take altitude into account for distance measurement
+			dlat = mission_safe_point.lat - global_position.lat;
+			dlon = mission_safe_point.lon - global_position.lon;
+			double dist_squared = coord_dist_sq(dlat, dlon);
+
+			if (dist_squared < min_dist_squared) {
+				closest_index = current_seq;
+				min_dist_squared = dist_squared;
+				closest_safe_point = mission_safe_point;
+			}
 		}
 	}
 
