@@ -119,14 +119,21 @@ MavlinkMissionManager::init_offboard_mission()
 bool
 MavlinkMissionManager::load_geofence_stats()
 {
-	mission_stats_entry_s stats;
-	// initialize fence points count
-	bool success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, 0, reinterpret_cast<uint8_t *>(&stats),
-						sizeof(mission_stats_entry_s));
+	bool success = _dataman_client.lockSync(DM_KEY_FENCE_POINTS, 5_s);
 
 	if (success) {
-		_count[MAV_MISSION_TYPE_FENCE] = stats.num_items;
-		_geofence_update_counter = stats.update_counter;
+		mission_stats_entry_s stats;
+		// initialize fence points count
+		success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, 0, reinterpret_cast<uint8_t *>(&stats),
+						   sizeof(mission_stats_entry_s));
+
+		if (success) {
+			_count[MAV_MISSION_TYPE_FENCE] = stats.num_items;
+			_geofence_update_counter = stats.update_counter;
+		}
+
+		_dataman_client.unlockSync(DM_KEY_FENCE_POINTS);
+
 	}
 
 	return success;
@@ -315,22 +322,31 @@ MavlinkMissionManager::send_mission_item(uint8_t sysid, uint8_t compid, uint16_t
 		break;
 
 	case MAV_MISSION_TYPE_FENCE: { // Read a geofence point
-			mission_fence_point_s mission_fence_point;
-			read_success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, seq + 1,
-								reinterpret_cast<uint8_t *>(&mission_fence_point), sizeof(mission_fence_point_s));
 
-			mission_item.nav_cmd = mission_fence_point.nav_cmd;
-			mission_item.frame = mission_fence_point.frame;
-			mission_item.lat = mission_fence_point.lat;
-			mission_item.lon = mission_fence_point.lon;
-			mission_item.altitude = mission_fence_point.alt;
+			bool success = _dataman_client.lockSync(DM_KEY_FENCE_POINTS, 5_s);
+			read_success = false;
 
-			if (mission_fence_point.nav_cmd == MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION ||
-			    mission_fence_point.nav_cmd == MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION) {
-				mission_item.vertex_count = mission_fence_point.vertex_count;
+			if (success) {
 
-			} else {
-				mission_item.circle_radius = mission_fence_point.circle_radius;
+				mission_fence_point_s mission_fence_point;
+				read_success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, seq + 1,
+									reinterpret_cast<uint8_t *>(&mission_fence_point), sizeof(mission_fence_point_s));
+
+				_dataman_client.unlockSync(DM_KEY_FENCE_POINTS);
+
+				mission_item.nav_cmd = mission_fence_point.nav_cmd;
+				mission_item.frame = mission_fence_point.frame;
+				mission_item.lat = mission_fence_point.lat;
+				mission_item.lon = mission_fence_point.lon;
+				mission_item.altitude = mission_fence_point.alt;
+
+				if (mission_fence_point.nav_cmd == MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION ||
+				    mission_fence_point.nav_cmd == MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION) {
+					mission_item.vertex_count = mission_fence_point.vertex_count;
+
+				} else {
+					mission_item.circle_radius = mission_fence_point.circle_radius;
+				}
 			}
 		}
 		break;
@@ -965,7 +981,7 @@ MavlinkMissionManager::handle_mission_count(const mavlink_message_t *msg)
 				// switching back to idle
 				PX4_DEBUG("locking fence dataman items");
 
-				bool success = _dataman_client.lockSync(DM_KEY_FENCE_POINTS);
+				bool success = _dataman_client.lockSync(DM_KEY_FENCE_POINTS, 5_s);
 
 				if (success) {
 					_geofence_locked = true;
@@ -1186,7 +1202,7 @@ MavlinkMissionManager::handle_mission_item_both(const mavlink_message_t *msg)
 				mission_safe_point.alt = mission_item.altitude;
 				mission_safe_point.frame = mission_item.frame;
 				write_failed = !_dataman_client.writeSync(DM_KEY_SAFE_POINTS, wp.seq + 1,
-						reinterpret_cast<uint8_t *>(&mission_safe_point), sizeof(mission_safe_point_s));
+						reinterpret_cast<uint8_t *>(&mission_safe_point), sizeof(mission_safe_point_s), 2_s);
 			}
 			break;
 
