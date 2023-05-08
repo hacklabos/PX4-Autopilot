@@ -154,7 +154,7 @@ void Geofence::run()
 				_dataman_state = DatamanState::Load;
 
 			} else {
-				_dataman_state = DatamanState::UpdateRequestWait;
+				_dataman_state = DatamanState::Unlock;
 			}
 		}
 
