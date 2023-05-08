@@ -803,12 +803,10 @@ task_main(int argc, char *argv[])
 						g_item_locks[request.item] = NOT_LOCKED;
 						response.status = dataman_response_s::STATUS_SUCCESS;
 
-					} else if (g_item_locks[request.item] == NOT_LOCKED) {
+					} else if (g_item_locks[request.item] != request.client_id) {
 
 						response.status = dataman_response_s::STATUS_ALREADY_UNLOCKED;
 
-					} else {
-						response.status = dataman_response_s::STATUS_FAILURE_UNLOCK_FAILED;
 					}
 
 					break;
