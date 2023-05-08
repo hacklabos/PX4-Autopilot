@@ -69,9 +69,86 @@ RTL::RTL(Navigator *navigator) :
 
 void RTL::run()
 {
-	if (!_safe_points_updated) {
+	bool success;
+
+	switch (_dataman_state) {
+
+	case DatamanState::UpdateRequestWait:
+
+		if (_initiate_safe_points_updated) {
+			_initiate_safe_points_updated = false;
+			_dataman_state	= DatamanState::Read;
+		}
+
+		break;
+
+	case DatamanState::Read:
+
+		_dataman_state	= DatamanState::ReadWait;
+		success = _dataman_client.readAsync(DM_KEY_SAFE_POINTS, 0, reinterpret_cast<uint8_t *>(&_stats),
+						    sizeof(mission_stats_entry_s));
+
+		if (!success) {
+			_error_state = DatamanState::Read;
+			_dataman_state = DatamanState::Error;
+		}
+
+		break;
+
+	case DatamanState::ReadWait:
+
+		_dataman_client.update();
+
+		if (_dataman_client.lastOperationCompleted(success)) {
+
+			if (!success) {
+				_error_state = DatamanState::ReadWait;
+				_dataman_state = DatamanState::Error;
+
+			} else if (_update_counter != _stats.update_counter) {
+
+				_update_counter = _stats.update_counter;
+				_safe_points_updated = false;
+
+				_dataman_cache.invalidate();
+
+				if (_num_safe_points != _stats.num_items) {
+					_num_safe_points = _stats.num_items;
+					_dataman_cache.resize(_num_safe_points);
+				}
+
+				for (uint32_t index = 1; index <= _num_safe_points; ++index) {
+					_dataman_cache.load(DM_KEY_SAFE_POINTS, index);
+				}
+
+				_dataman_state = DatamanState::Load;
+
+			} else {
+				_dataman_state = DatamanState::UpdateRequestWait;
+			}
+		}
+
+		break;
+
+	case DatamanState::Load:
+
 		_dataman_cache.update();
-		_safe_points_updated = !_dataman_cache.isLoading();
+
+		if (!_dataman_cache.isLoading()) {
+			_dataman_state = DatamanState::UpdateRequestWait;
+			_num_safe_points = true;
+		}
+
+		break;
+
+	case DatamanState::Error:
+		PX4_ERR("Safe points update failed! state:%" PRIu8, static_cast<uint8_t>(_error_state));
+		_dataman_state = DatamanState::UpdateRequestWait;
+		break;
+
+	default:
+		break;
+
 	}
 }
 
@@ -186,44 +263,20 @@ void RTL::find_RTL_destination()
 		return;
 	}
 
-	// compare to safe landing positions
+	_initiate_safe_points_updated = true;
+
 	mission_safe_point_s closest_safe_point {};
-	mission_stats_entry_s stats;
-	bool success = _dataman_client.readSync(DM_KEY_SAFE_POINTS, 0, reinterpret_cast<uint8_t *>(&stats),
-						sizeof(mission_stats_entry_s));
-	uint16_t num_safe_points = 0;
-
-	if (success) {
-		num_safe_points = stats.num_items;
-	}
-
-	if (_update_counter != stats.update_counter) {
-
-		_safe_points_updated = false;
-		_update_counter = stats.update_counter;
-
-		_dataman_cache.invalidate();
-
-		if (_num_safe_points != num_safe_points) {
-			_num_safe_points = num_safe_points;
-			_dataman_cache.resize(_num_safe_points);
-		}
-
-		for (uint32_t index = 1; index <= _num_safe_points; ++index) {
-			_dataman_cache.load(DM_KEY_SAFE_POINTS, index);
-		}
-	}
-
 	// check if a safe point is closer than home or landing
 	int closest_index = 0;
 
 	if (_safe_points_updated) {
 
-		for (int current_seq = 1; current_seq <= num_safe_points; ++current_seq) {
+		for (int current_seq = 1; current_seq <= _num_safe_points; ++current_seq) {
 			mission_safe_point_s mission_safe_point;
 
-			success = _dataman_cache.loadWait(DM_KEY_SAFE_POINTS, current_seq, reinterpret_cast<uint8_t *>(&mission_safe_point),
-							  sizeof(mission_safe_point_s));
+			bool success = _dataman_cache.loadWait(DM_KEY_SAFE_POINTS, current_seq,
+							       reinterpret_cast<uint8_t *>(&mission_safe_point),
+							       sizeof(mission_safe_point_s));
 
 			if (!success) {
 				PX4_ERR("dm_read failed");
