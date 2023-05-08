@@ -505,12 +505,13 @@ void DatamanClient::update()
 						response.request_type, response.status, static_cast<uint8_t>(_active_request.item), _active_request.index);
 				}
 
-				_state = State::ResponseReceived;
-
+				if (_response_status != dataman_response_s::STATUS_ALREADY_LOCKED) {
+					_state = State::ResponseReceived;
+				}
 			}
 		}
 
-		if ((_state == State::RequestSent) || (_response_status == dataman_response_s::STATUS_ALREADY_LOCKED)) {
+		if (_state == State::RequestSent) {
 
 			/* Retry the request if there is no answer or if already locked. */
 			if (((_active_request.request_type != DM_CLEAR) && (hrt_elapsed_time(&_active_request.timestamp) > 100_ms)) ||
@@ -549,7 +550,6 @@ bool DatamanClient::lastOperationCompleted(bool &success)
 	if (_state == State::ResponseReceived) {
 
 		if ((_response_status == dataman_response_s::STATUS_SUCCESS) ||
-		    (_response_status == dataman_response_s::STATUS_ALREADY_LOCKED) ||
 		    (_response_status == dataman_response_s::STATUS_ALREADY_UNLOCKED)) {
 			success = true;
 
