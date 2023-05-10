@@ -58,9 +58,8 @@ Geofence::Geofence(Navigator *navigator) :
 	_navigator(navigator),
 	_sub_airdata(ORB_ID(vehicle_air_data))
 {
-	// we assume there's no concurrent fence update on startup
 	if (_navigator != nullptr) {
-		_updateFence();
+		updateFence();
 	}
 }
 
@@ -71,47 +70,114 @@ Geofence::~Geofence()
 	}
 }
 
+void Geofence::run()
+{
+	bool success;
+
+	switch (_dataman_state) {
+
+	case DatamanState::UpdateRequestWait:
+
+		if (_initiate_fance_updated) {
+			_initiate_fance_updated = false;
+			_dataman_state	= DatamanState::Read;
+		}
+
+		break;
+
+	case DatamanState::Read:
+
+		_dataman_state = DatamanState::ReadWait;
+		success = _dataman_client.readAsync(DM_KEY_FENCE_POINTS, 0, reinterpret_cast<uint8_t *>(&_stats),
+						    sizeof(mission_stats_entry_s));
+
+		if (!success) {
+			_error_state = DatamanState::Read;
+			_dataman_state = DatamanState::Error;
+		}
+
+		break;
+
+	case DatamanState::ReadWait:
+
+		_dataman_client.update();
+
+		if (_dataman_client.lastOperationCompleted(success)) {
+
+			if (!success) {
+				_error_state = DatamanState::ReadWait;
+				_dataman_state = DatamanState::Error;
+
+			} else if (_update_counter != _stats.update_counter) {
+
+				_update_counter = _stats.update_counter;
+				_fance_updated = false;
+
+				_dataman_cache.invalidate();
+
+				if (_num_fence_items != _stats.num_items) {
+					_num_fence_items = _stats.num_items;
+					_dataman_cache.resize(_num_fence_items);
+				}
+
+				for (uint32_t index = 1; index <= _num_fence_items; ++index) {
+					_dataman_cache.load(DM_KEY_FENCE_POINTS, index);
+				}
+
+				_dataman_state = DatamanState::Load;
+
+			} else {
+				_dataman_state = DatamanState::UpdateRequestWait;
+			}
+		}
+
+		break;
+
+	case DatamanState::Load:
+
+		_dataman_cache.update();
+
+		if (!_dataman_cache.isLoading()) {
+			_dataman_state = DatamanState::UpdateRequestWait;
+			_updateFence();
+			_fance_updated = true;
+		}
+
+		break;
+
+	case DatamanState::Error:
+		PX4_ERR("Geofence update failed! state:%" PRIu8, static_cast<uint8_t>(_error_state));
+		_dataman_state = DatamanState::UpdateRequestWait;
+		break;
+
+	default:
+		break;
+
+	}
+}
+
 void Geofence::updateFence()
 {
-	// Note: be aware that when calling this, it can block for quite some time, the duration of a geofence transfer.
-	// However this is currently not used
-	bool success = _dataman_client.lockSync(DM_KEY_FENCE_POINTS);
-
-	if (!success) {
-		PX4_ERR("lock failed");
-		return;
-	}
-
-	_updateFence();
-	_dataman_client.unlockSync(DM_KEY_FENCE_POINTS);
+	_initiate_fance_updated = true;
 }
 
 void Geofence::_updateFence()
 {
-	// initialize fence points count
-	mission_stats_entry_s stats;
-	bool success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, 0, reinterpret_cast<uint8_t *>(&stats),
-						sizeof(mission_stats_entry_s));
-	int num_fence_items = 0;
-
-	if (success) {
-		num_fence_items = stats.num_items;
-		_update_counter = stats.update_counter;
-	}
+	mission_fence_point_s mission_fence_point;
+	bool is_circle_area = false;
 
 	// iterate over all polygons and store their starting vertices
 	_num_polygons = 0;
-	int current_seq = 1;
+	uint32_t current_seq = 1;
 
-	while (current_seq <= num_fence_items) {
-		mission_fence_point_s mission_fence_point;
-		bool is_circle_area = false;
+	while (current_seq <= _num_fence_items) {
 
-		success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, current_seq, reinterpret_cast<uint8_t *>(&mission_fence_point),
-						   sizeof(mission_fence_point_s));
+		bool success = _dataman_cache.loadWait(DM_KEY_FENCE_POINTS, current_seq,
+						       reinterpret_cast<uint8_t *>(&mission_fence_point),
+						       sizeof(mission_fence_point_s));
 
 		if (!success) {
-			PX4_ERR("dm_read failed");
+			PX4_ERR("loadWait failed, seq: %" PRIu32, current_seq);
 			break;
 		}
 
@@ -177,9 +243,7 @@ void Geofence::_updateFence()
 			++current_seq;
 			break;
 		}
-
 	}
-
 }
 
 bool Geofence::checkAll(const struct vehicle_global_position_s &global_position)
@@ -311,25 +375,9 @@ bool Geofence::isBelowMaxAltitude(float altitude)
 
 bool Geofence::isInsidePolygonOrCircle(double lat, double lon, float altitude)
 {
-	// the following uses readSync, so first we try to lock all items. If that fails, it (most likely) means
-	// the data is currently being updated (via a mavlink geofence transfer), and we do not check for a violation now
-	bool success = _dataman_client.lockSync(DM_KEY_FENCE_POINTS);
-
-	if (!success) {
-		return true;
-	}
-
-	// we got the lock, now check if the fence data got updated
-	mission_stats_entry_s stats;
-	success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, 0, reinterpret_cast<uint8_t *>(&stats),
-					   sizeof(mission_stats_entry_s));
-
-	if (success && _update_counter != stats.update_counter) {
-		_updateFence();
-	}
+	updateFence();
 
 	if (isEmpty()) {
-		_dataman_client.unlockSync(DM_KEY_FENCE_POINTS);
 		/* Empty fence -> accept all points */
 		return true;
 	}
@@ -337,11 +385,9 @@ bool Geofence::isInsidePolygonOrCircle(double lat, double lon, float altitude)
 	/* Vertical check */
 	if (_altitude_max > _altitude_min) { // only enable vertical check if configured properly
 		if (altitude > _altitude_max || altitude < _altitude_min) {
-			_dataman_client.unlockSync(DM_KEY_FENCE_POINTS);
 			return false;
 		}
 	}
-
 
 	/* Horizontal check: iterate all polygons & circles */
 	bool outside_exclusion = true;
@@ -383,8 +429,6 @@ bool Geofence::isInsidePolygonOrCircle(double lat, double lon, float altitude)
 		}
 	}
 
-	_dataman_client.unlockSync(DM_KEY_FENCE_POINTS);
-
 	return (!had_inclusion_areas || inside_inclusion) && outside_exclusion;
 }
 
@@ -403,15 +447,15 @@ bool Geofence::insidePolygon(const PolygonInfo &polygon, double lat, double lon,
 
 	for (unsigned i = 0, j = polygon.vertex_count - 1; i < polygon.vertex_count; j = i++) {
 
-		bool success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, polygon.dataman_index + i,
-							reinterpret_cast<uint8_t *>(&temp_vertex_i), sizeof(mission_fence_point_s));
+		bool success = _dataman_cache.loadWait(DM_KEY_FENCE_POINTS, polygon.dataman_index + i,
+						       reinterpret_cast<uint8_t *>(&temp_vertex_i), sizeof(mission_fence_point_s));
 
 		if (!success) {
 			break;
 		}
 
-		success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, polygon.dataman_index + j,
-						   reinterpret_cast<uint8_t *>(&temp_vertex_j), sizeof(mission_fence_point_s));
+		success = _dataman_cache.loadWait(DM_KEY_FENCE_POINTS, polygon.dataman_index + j,
+						  reinterpret_cast<uint8_t *>(&temp_vertex_j), sizeof(mission_fence_point_s));
 
 		if (!success) {
 			break;
@@ -439,8 +483,8 @@ bool Geofence::insideCircle(const PolygonInfo &polygon, double lat, double lon, 
 {
 
 	mission_fence_point_s circle_point{};
-	bool success = _dataman_client.readSync(DM_KEY_FENCE_POINTS, polygon.dataman_index,
-						reinterpret_cast<uint8_t *>(&circle_point), sizeof(mission_fence_point_s));
+	bool success = _dataman_cache.loadWait(DM_KEY_FENCE_POINTS, polygon.dataman_index,
+					       reinterpret_cast<uint8_t *>(&circle_point), sizeof(mission_fence_point_s));
 
 	if (!success) {
 		PX4_ERR("dm_read failed");
@@ -590,6 +634,7 @@ Geofence::loadFromFile(const char *filename)
 
 		mission_stats_entry_s stats;
 		stats.num_items = pointCounter;
+		stats.update_counter = _update_counter + 1;
 
 		bool success = _dataman_client.writeSync(DM_KEY_FENCE_POINTS, 0, reinterpret_cast<uint8_t *>(&stats),
 				sizeof(mission_stats_entry_s));
