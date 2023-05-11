@@ -87,28 +87,6 @@ public:
 	bool clearSync(dm_item_t item, hrt_abstime timeout = 1000_ms);
 
 	/**
-	 * @brief Locks an item in the dataman for exclusive access.
-	 *
-	 * This function sends a DM_LOCK request to the dataman to lock an item for exclusive access.
-	 * If the item is already locked, it will wait and retry until it can obtain the lock or the timeout
-	 * is reached. Once the lock is obtained, the item can be safely modified.
-	 *
-	 * @param[in] item The item to be locked.
-	 * @param[in] timeout The maximum time to wait for the lock in microseconds.
-	 * @return true if the item is locked successfully, false otherwise.
-	 */
-	bool lockSync(dm_item_t item, hrt_abstime timeout = 1000_ms);
-
-	/**
-	 * Unlock an item in dataman.
-	 *
-	 * @param[in] item: The item to unlock.
-	 * @param[in] timeout: The timeout for the operation.
-	 * @return True if the unlock operation was successful, false otherwise.
-	 */
-	bool unlockSync(dm_item_t item, hrt_abstime timeout = 1000_ms);
-
-	/**
 	 * @brief Initiates an asynchronous request to read the data from dataman for a specific item and index.
 	 *
 	 * @param[in] item The item to read from.
