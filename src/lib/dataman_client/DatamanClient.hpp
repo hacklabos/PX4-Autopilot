@@ -38,6 +38,7 @@
 #include <uORB/topics/dataman_request.h>
 #include <uORB/topics/dataman_response.h>
 #include <dataman/dataman.h>
+#include <lib/perf/perf_counter.h>
 
 using namespace time_literals;
 
@@ -198,6 +199,9 @@ private:
 
 	uint8_t _client_id{0};
 
+	perf_counter_t	_sync_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": sync")};
+	perf_counter_t	_async_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": async")};
+
 	static constexpr uint8_t CLIENT_ID_NOT_SET{0};
 };
 
@@ -297,4 +301,7 @@ private:
 	uint32_t _num_items{0};		///< number of items that cache can store
 
 	DatamanClient _client{};
+
+	perf_counter_t	_load_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": load")};
+	perf_counter_t	_load_wait_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": load wait")};
 };

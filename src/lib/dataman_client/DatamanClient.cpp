@@ -77,11 +77,18 @@ DatamanClient::~DatamanClient()
 	if (_dataman_response_sub >= 0) {
 		orb_unsubscribe(_dataman_response_sub);
 	}
+
+	perf_free(_sync_perf);
+	_sync_perf = nullptr;
+
+	perf_free(_async_perf);
+	_async_perf = nullptr;
 }
 
 bool DatamanClient::syncHandler(const dataman_request_s &request, dataman_response_s &response,
 				const hrt_abstime &start_time, hrt_abstime timeout)
 {
+	perf_begin(_sync_perf);
 	bool response_received = false;
 	int32_t ret = 0;
 	hrt_abstime time_elapsed = hrt_elapsed_time(&start_time);
@@ -136,6 +143,7 @@ bool DatamanClient::syncHandler(const dataman_request_s &request, dataman_respon
 		PX4_ERR("timeout after %" PRIu32 " ms!", static_cast<uint32_t>(timeout / 1000));
 	}
 
+	perf_end(_sync_perf);
 	return response_received;
 }
 
@@ -354,6 +362,8 @@ void DatamanClient::update()
 {
 	if (_state == State::RequestSent) {
 
+		perf_begin(_async_perf);
+
 		bool updated = false;
 		orb_check(_dataman_response_sub, &updated);
 
@@ -412,6 +422,8 @@ void DatamanClient::update()
 				_state = State::RequestSent;
 			}
 		}
+
+		perf_end(_async_perf);
 	}
 }
 
@@ -450,6 +462,12 @@ DatamanCache::DatamanCache(uint32_t num_items)
 DatamanCache::~DatamanCache()
 {
 	delete[] _items;
+
+	perf_free(_load_perf);
+	_load_perf = nullptr;
+
+	perf_free(_load_wait_perf);
+	_load_wait_perf = nullptr;
 }
 
 void DatamanCache::resize(uint32_t num_items)
@@ -511,6 +529,8 @@ bool DatamanCache::load(dm_item_t item, uint32_t index)
 
 bool DatamanCache::loadWait(dm_item_t item, uint32_t index, uint8_t *buffer, uint32_t length, hrt_abstime timeout)
 {
+	perf_begin(_load_wait_perf);
+
 	if (length > g_per_item_size[item]) {
 		PX4_ERR("Length  %" PRIu32 " can't fit in data size for item  %" PRIi8, length, static_cast<uint8_t>(item));
 		return false;
@@ -532,6 +552,8 @@ bool DatamanCache::loadWait(dm_item_t item, uint32_t index, uint8_t *buffer, uin
 		success = _client.readSync(item, index, buffer, length, timeout);
 	}
 
+	perf_end(_load_wait_perf);
+
 	return success;
 }
 
@@ -539,6 +561,7 @@ void DatamanCache::update()
 {
 	if (_item_counter > 0) {
 
+		perf_begin(_load_perf);
 		_client.update();
 
 		bool success = false;
@@ -588,6 +611,8 @@ void DatamanCache::update()
 		default:
 			break;
 		}
+
+		perf_end(_load_perf);
 
 	}
 }
