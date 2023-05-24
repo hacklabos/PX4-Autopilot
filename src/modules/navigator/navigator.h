@@ -370,7 +370,8 @@ public:
 	void		release_gimbal_control();
 	void 		set_gimbal_neutral();
 
-	void        stop_capturing_images();
+	void	stop_capturing_images();
+	void	disable_camera_trigger();
 
 private:
 	DEFINE_PARAMETERS(

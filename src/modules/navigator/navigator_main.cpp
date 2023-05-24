@@ -1099,7 +1099,7 @@ int Navigator::task_spawn(int argc, char *argv[])
 	_task_id = px4_task_spawn_cmd("navigator",
 				      SCHED_DEFAULT,
 				      SCHED_PRIORITY_NAVIGATION,
-				      PX4_STACK_ADJUSTED(1900),
+				      PX4_STACK_ADJUSTED(2100),
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 
@@ -1851,6 +1851,18 @@ Navigator::stop_capturing_images()
 
 		// _is_capturing_images is reset inside publish_vehicle_cmd.
 	}
+}
+
+void
+Navigator::disable_camera_trigger()
+{
+	// Disable camera trigger
+	vehicle_command_s cmd {};
+	cmd.command = vehicle_command_s::VEHICLE_CMD_DO_TRIGGER_CONTROL;
+	// Pause trigger
+	cmd.param1 = -1.0f;
+	cmd.param3 = 1.0f;
+	publish_vehicle_cmd(&cmd);
 }
 
 void
